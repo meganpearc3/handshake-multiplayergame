@@ -28,6 +28,11 @@ var _visuals: Node3D = null
 var _torso: MeshInstance3D = null
 var _head: MeshInstance3D = null
 var _backpack: MeshInstance3D = null
+var _arm_l: Node3D = null
+var _arm_r: Node3D = null
+var _leg_l: Node3D = null
+var _leg_r: Node3D = null
+var _stun_stars: Node3D = null
 var _diamond_prop: Node3D = null
 var _keycard_prop: Node3D = null
 var _overhead_label: Label3D = null
@@ -87,133 +92,338 @@ func _build_procedural_model() -> void:
 	# Determine team colors
 	var main_color := Color(0.12, 0.45, 0.95) if player_id == 1 else Color(0.95, 0.45, 0.08)
 	var accent_color := Color(0.2, 0.9, 1.0) if player_id == 1 else Color(1.0, 0.85, 0.2)
-	var dark_gear := Color(0.12, 0.14, 0.18)
+	var pants_color := Color(0.10, 0.13, 0.18) # Dark stealth tactical pants
+	var dark_gear := Color(0.08, 0.09, 0.12)
+	var boot_color := Color(0.05, 0.05, 0.06)
+	var gold_metal := Color(0.92, 0.78, 0.25)
 	
 	var mat_main := StandardMaterial3D.new()
 	mat_main.albedo_color = main_color
-	mat_main.roughness = 0.4
+	mat_main.roughness = 0.35
 	
 	var mat_accent := StandardMaterial3D.new()
 	mat_accent.albedo_color = accent_color
 	mat_accent.emission_enabled = true
 	mat_accent.emission = accent_color
-	mat_accent.emission_energy_multiplier = 0.8
+	mat_accent.emission_energy_multiplier = 1.4
+	mat_accent.roughness = 0.2
+	
+	var mat_pants := StandardMaterial3D.new()
+	mat_pants.albedo_color = pants_color
+	mat_pants.roughness = 0.6
 	
 	var mat_gear := StandardMaterial3D.new()
 	mat_gear.albedo_color = dark_gear
-	mat_gear.roughness = 0.6
+	mat_gear.roughness = 0.5
 	
-	# Torso / Jumpsuit
+	var mat_boot := StandardMaterial3D.new()
+	mat_boot.albedo_color = boot_color
+	mat_boot.roughness = 0.7
+	
+	var mat_gold := StandardMaterial3D.new()
+	mat_gold.albedo_color = gold_metal
+	mat_gold.metallic = 0.9
+	mat_gold.roughness = 0.2
+	
+	# 1. Torso & Fitted Jacket
 	_torso = MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.32
-	body_mesh.height = 0.9
+	body_mesh.radius = 0.30
+	body_mesh.height = 0.85
 	_torso.mesh = body_mesh
 	_torso.material_override = mat_main
-	_torso.position = Vector3(0, 0.65, 0)
+	_torso.position = Vector3(0, 0.68, 0)
 	_visuals.add_child(_torso)
 	
-	# Belt / Gear strap
+	# Chest Collar & Zipper line
+	var collar := MeshInstance3D.new()
+	var cmesh := BoxMesh.new()
+	cmesh.size = Vector3(0.08, 0.55, 0.08)
+	collar.mesh = cmesh
+	collar.material_override = mat_gold
+	collar.position = Vector3(0, 0.75, -0.28)
+	_visuals.add_child(collar)
+	
+	# Tactical Chest Harness Straps
+	for side in [-1, 1]:
+		var strap := MeshInstance3D.new()
+		var sbox := BoxMesh.new()
+		sbox.size = Vector3(0.08, 0.5, 0.04)
+		strap.mesh = sbox
+		strap.material_override = mat_gear
+		strap.position = Vector3(side * 0.18, 0.75, -0.26)
+		strap.rotation.z = side * 0.25
+		_visuals.add_child(strap)
+	
+	# 2. Utility Belt with Gold Buckle and Pouches
 	var belt := MeshInstance3D.new()
 	var belt_mesh := CylinderMesh.new()
-	belt_mesh.top_radius = 0.34
-	belt_mesh.bottom_radius = 0.34
+	belt_mesh.top_radius = 0.33
+	belt_mesh.bottom_radius = 0.33
 	belt_mesh.height = 0.12
 	belt.mesh = belt_mesh
 	belt.material_override = mat_gear
-	belt.position = Vector3(0, 0.45, 0)
+	belt.position = Vector3(0, 0.44, 0)
 	_visuals.add_child(belt)
 	
-	# Head
+	var buckle := MeshInstance3D.new()
+	var bbox := BoxMesh.new()
+	bbox.size = Vector3(0.14, 0.12, 0.06)
+	buckle.mesh = bbox
+	buckle.material_override = mat_gold
+	buckle.position = Vector3(0, 0.44, -0.32)
+	_visuals.add_child(buckle)
+	
+	# Side Gear Pouches
+	for side in [-1, 1]:
+		var pouch := MeshInstance3D.new()
+		var pbox := BoxMesh.new()
+		pbox.size = Vector3(0.12, 0.16, 0.14)
+		pouch.mesh = pbox
+		pouch.material_override = mat_gear
+		pouch.position = Vector3(side * 0.32, 0.44, 0.05)
+		_visuals.add_child(pouch)
+	
+	# 3. Head & Mask
 	_head = MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.26
-	head_mesh.height = 0.52
+	head_mesh.radius = 0.25
+	head_mesh.height = 0.50
 	_head.mesh = head_mesh
-	_head.material_override = mat_gear
+	_head.material_override = mat_gear # Balaclava
 	_head.position = Vector3(0, 1.25, 0)
 	_visuals.add_child(_head)
 	
-	# Visor / Goggles
+	# Operative Visor / Night Vision Goggles
 	var visor := MeshInstance3D.new()
 	var visor_mesh := BoxMesh.new()
-	visor_mesh.size = Vector3(0.38, 0.12, 0.22)
+	visor_mesh.size = Vector3(0.38, 0.14, 0.20)
 	visor.mesh = visor_mesh
 	visor.material_override = mat_accent
 	visor.position = Vector3(0, 1.28, -0.16)
 	_visuals.add_child(visor)
 	
-	# Tactical Backpack
+	# Dual Goggle Lenses
+	for lx in [-0.10, 0.10]:
+		var lens := MeshInstance3D.new()
+		var lcyl := CylinderMesh.new()
+		lcyl.top_radius = 0.065
+		lcyl.bottom_radius = 0.065
+		lcyl.height = 0.1
+		lens.mesh = lcyl
+		lens.rotation.x = PI * 0.5
+		lens.material_override = mat_accent
+		lens.position = Vector3(lx, 1.28, -0.24)
+		_visuals.add_child(lens)
+	
+	# Blinking Comms Earpiece on Cipher / Infiltrator Aerial on Spark
+	var antenna := MeshInstance3D.new()
+	var acyl := CylinderMesh.new()
+	acyl.top_radius = 0.015
+	acyl.bottom_radius = 0.02
+	acyl.height = 0.22
+	antenna.mesh = acyl
+	antenna.material_override = mat_gold
+	antenna.position = Vector3(-0.25, 1.38, 0)
+	antenna.rotation.z = -0.3
+	_visuals.add_child(antenna)
+	
+	# 4. Articulated Legs & Boots
+	_leg_l = Node3D.new()
+	_leg_l.position = Vector3(-0.16, 0.42, 0)
+	_visuals.add_child(_leg_l)
+	
+	var leg_l_mesh := MeshInstance3D.new()
+	var lcyl_leg := CylinderMesh.new()
+	lcyl_leg.top_radius = 0.11
+	lcyl_leg.bottom_radius = 0.10
+	lcyl_leg.height = 0.32
+	leg_l_mesh.mesh = lcyl_leg
+	leg_l_mesh.material_override = mat_pants
+	leg_l_mesh.position = Vector3(0, -0.16, 0)
+	_leg_l.add_child(leg_l_mesh)
+	
+	var boot_l := MeshInstance3D.new()
+	var bbox_boot := BoxMesh.new()
+	bbox_boot.size = Vector3(0.18, 0.16, 0.28)
+	boot_l.mesh = bbox_boot
+	boot_l.material_override = mat_boot
+	boot_l.position = Vector3(0, -0.34, -0.05)
+	_leg_l.add_child(boot_l)
+	
+	_leg_r = Node3D.new()
+	_leg_r.position = Vector3(0.16, 0.42, 0)
+	_visuals.add_child(_leg_r)
+	
+	var leg_r_mesh := MeshInstance3D.new()
+	leg_r_mesh.mesh = lcyl_leg
+	leg_r_mesh.material_override = mat_pants
+	leg_r_mesh.position = Vector3(0, -0.16, 0)
+	_leg_r.add_child(leg_r_mesh)
+	
+	var boot_r := MeshInstance3D.new()
+	boot_r.mesh = bbox_boot
+	boot_r.material_override = mat_boot
+	boot_r.position = Vector3(0, -0.34, -0.05)
+	_leg_r.add_child(boot_r)
+	
+	# 5. Articulated Arms & Gloves
+	_arm_l = Node3D.new()
+	_arm_l.position = Vector3(-0.35, 0.90, 0)
+	_visuals.add_child(_arm_l)
+	
+	var arm_l_mesh := MeshInstance3D.new()
+	var lcyl_arm := CylinderMesh.new()
+	lcyl_arm.top_radius = 0.09
+	lcyl_arm.bottom_radius = 0.08
+	lcyl_arm.height = 0.36
+	arm_l_mesh.mesh = lcyl_arm
+	arm_l_mesh.material_override = mat_main
+	arm_l_mesh.position = Vector3(0, -0.18, 0)
+	_arm_l.add_child(arm_l_mesh)
+	
+	var glove_l := MeshInstance3D.new()
+	var gsph := SphereMesh.new()
+	gsph.radius = 0.10
+	gsph.height = 0.20
+	glove_l.mesh = gsph
+	glove_l.material_override = mat_gear
+	glove_l.position = Vector3(0, -0.38, 0)
+	_arm_l.add_child(glove_l)
+	
+	_arm_r = Node3D.new()
+	_arm_r.position = Vector3(0.35, 0.90, 0)
+	_visuals.add_child(_arm_r)
+	
+	var arm_r_mesh := MeshInstance3D.new()
+	arm_r_mesh.mesh = lcyl_arm
+	arm_r_mesh.material_override = mat_main
+	arm_r_mesh.position = Vector3(0, -0.18, 0)
+	_arm_r.add_child(arm_r_mesh)
+	
+	var glove_r := MeshInstance3D.new()
+	glove_r.mesh = gsph
+	glove_r.material_override = mat_gear
+	glove_r.position = Vector3(0, -0.38, 0)
+	_arm_r.add_child(glove_r)
+	
+	# 6. Tactical Backpack with Equipment Roll
 	_backpack = MeshInstance3D.new()
 	var pack_mesh := BoxMesh.new()
-	pack_mesh.size = Vector3(0.42, 0.48, 0.24)
+	pack_mesh.size = Vector3(0.42, 0.50, 0.25)
 	_backpack.mesh = pack_mesh
 	_backpack.material_override = mat_gear
-	_backpack.position = Vector3(0, 0.75, 0.22)
+	_backpack.position = Vector3(0, 0.78, 0.24)
 	_visuals.add_child(_backpack)
 	
-	# Overhead identifier label
+	# Backpack bedroll / gear cylinder on top
+	var broll := MeshInstance3D.new()
+	var rcyl := CylinderMesh.new()
+	rcyl.top_radius = 0.10
+	rcyl.bottom_radius = 0.10
+	rcyl.height = 0.44
+	broll.mesh = rcyl
+	broll.rotation.z = PI * 0.5
+	broll.material_override = mat_accent
+	broll.position = Vector3(0, 1.08, 0.24)
+	_visuals.add_child(broll)
+	
+	# 7. Overhead Identifier Label
 	_overhead_label = Label3D.new()
 	_overhead_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_overhead_label.no_depth_test = true
 	_overhead_label.pixel_size = 0.005
-	_overhead_label.font_size = 32
+	_overhead_label.font_size = 34
 	_overhead_label.outline_size = 8
-	_overhead_label.outline_modulate = Color(0, 0, 0, 0.9)
-	_overhead_label.position = Vector3(0, 1.85, 0)
-	_overhead_label.text = "P1 CIPHER" if player_id == 1 else "P2 SPARK"
+	_overhead_label.outline_modulate = Color(0, 0, 0, 0.95)
+	_overhead_label.position = Vector3(0, 1.95, 0)
+	_overhead_label.text = "★ CIPHER [P1]" if player_id == 1 else "★ SPARK [P2]"
 	_overhead_label.modulate = accent_color
 	add_child(_overhead_label)
 	
-	# Floor highlight ring
+	# 8. Crisp Neon Floor Halo Ring
 	_halo_ring = MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.45
-	torus.outer_radius = 0.55
+	torus.inner_radius = 0.48
+	torus.outer_radius = 0.58
 	_halo_ring.mesh = torus
 	_halo_ring.material_override = mat_accent
 	_halo_ring.position = Vector3(0, 0.04, 0)
 	add_child(_halo_ring)
 	
-	# Diamond carrier attachment (hidden until collected)
+	# 9. Floating Stun Stars (hidden until stunned)
+	_stun_stars = Node3D.new()
+	_stun_stars.position = Vector3(0, 1.7, 0)
+	_stun_stars.visible = false
+	for i in range(3):
+		var star := MeshInstance3D.new()
+		var pmesh := PrismMesh.new()
+		pmesh.size = Vector3(0.12, 0.12, 0.06)
+		star.mesh = pmesh
+		star.material_override = mat_gold
+		var angle := (i * TAU) / 3.0
+		star.position = Vector3(cos(angle) * 0.35, sin(angle) * 0.1, sin(angle) * 0.35)
+		_stun_stars.add_child(star)
+	_visuals.add_child(_stun_stars)
+	
+	# 10. Midnight Diamond Mount on Backpack
 	_diamond_prop = Node3D.new()
-	_diamond_prop.position = Vector3(0, 1.05, 0.32)
+	_diamond_prop.position = Vector3(0, 1.15, 0.36)
 	_diamond_prop.visible = false
-	var gem_mesh := MeshInstance3D.new()
-	var prism := CylinderMesh.new()
-	prism.top_radius = 0.0
-	prism.bottom_radius = 0.22
-	prism.height = 0.35
-	gem_mesh.mesh = prism
+	
+	var gem_top := MeshInstance3D.new()
+	var tcyl_gem := CylinderMesh.new()
+	tcyl_gem.top_radius = 0.22
+	tcyl_gem.bottom_radius = 0.0
+	tcyl_gem.height = 0.32
+	gem_top.mesh = tcyl_gem
 	var gem_mat := StandardMaterial3D.new()
-	gem_mat.albedo_color = Color(0.1, 0.8, 1.0, 0.9)
+	gem_mat.albedo_color = Color(0.1, 0.9, 1.0, 0.95)
 	gem_mat.emission_enabled = true
-	gem_mat.emission = Color(0.3, 0.9, 1.0)
-	gem_mat.emission_energy_multiplier = 2.5
-	gem_mat.roughness = 0.1
-	gem_mesh.material_override = gem_mat
-	gem_mesh.rotation.x = PI
-	_diamond_prop.add_child(gem_mesh)
+	gem_mat.emission = Color(0.3, 0.95, 1.0)
+	gem_mat.emission_energy_multiplier = 3.5
+	gem_mat.roughness = 0.05
+	gem_top.material_override = gem_mat
+	gem_top.position = Vector3(0, -0.08, 0)
+	_diamond_prop.add_child(gem_top)
+	
+	var gem_bot := MeshInstance3D.new()
+	var bcyl_gem := CylinderMesh.new()
+	bcyl_gem.top_radius = 0.0
+	bcyl_gem.bottom_radius = 0.22
+	bcyl_gem.height = 0.18
+	gem_bot.mesh = bcyl_gem
+	gem_bot.material_override = gem_mat
+	gem_bot.position = Vector3(0, 0.12, 0)
+	_diamond_prop.add_child(gem_bot)
+	
+	# Diamond glowing aura
+	var gem_light := OmniLight3D.new()
+	gem_light.light_color = Color(0.2, 0.9, 1.0)
+	gem_light.light_energy = 2.0
+	gem_light.omni_range = 3.5
+	_diamond_prop.add_child(gem_light)
+	
 	_visuals.add_child(_diamond_prop)
 	
-	# Keycard prop (hidden until collected)
+	# 11. Keycard Prop attached to belt
 	_keycard_prop = Node3D.new()
-	_keycard_prop.position = Vector3(0.28, 0.8, 0)
+	_keycard_prop.position = Vector3(0.32, 0.52, -0.15)
 	_keycard_prop.visible = false
 	var kc_mesh := MeshInstance3D.new()
 	var kc_box := BoxMesh.new()
-	kc_box.size = Vector3(0.08, 0.14, 0.02)
+	kc_box.size = Vector3(0.10, 0.16, 0.02)
 	kc_mesh.mesh = kc_box
 	var kc_mat := StandardMaterial3D.new()
-	kc_mat.albedo_color = Color(1.0, 0.9, 0.2)
+	kc_mat.albedo_color = Color(1.0, 0.88, 0.2)
 	kc_mat.emission_enabled = true
-	kc_mat.emission = Color(1.0, 0.9, 0.2)
-	kc_mat.emission_energy_multiplier = 1.5
+	kc_mat.emission = Color(1.0, 0.88, 0.2)
+	kc_mat.emission_energy_multiplier = 2.0
 	kc_mesh.material_override = kc_mat
 	_keycard_prop.add_child(kc_mesh)
 	_visuals.add_child(_keycard_prop)
 	
-	# Character collision shape
+	# Character collision shape (preserved)
 	var col_shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.36
@@ -260,11 +470,42 @@ func _physics_process(delta: float) -> void:
 		_walk_time += delta * 14.0
 		_visuals.position.y = absf(sin(_walk_time)) * 0.08
 		_visuals.rotation.z = sin(_walk_time * 0.5) * 0.08
+		
+		# Articulated leg walking swing
+		if _leg_l and _leg_r:
+			_leg_l.rotation.x = sin(_walk_time) * 0.75
+			_leg_r.rotation.x = -sin(_walk_time) * 0.75
+		
+		# Articulated arm walking swing (unless holding interaction)
+		if _arm_l and _arm_r:
+			if not _is_interacting_held:
+				_arm_l.rotation.x = -sin(_walk_time) * 0.6
+				_arm_r.rotation.x = sin(_walk_time) * 0.6
+			else:
+				_arm_r.rotation.x = lerp_angle(_arm_r.rotation.x, -1.2, delta * 12.0)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta * 1.5)
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta * 1.5)
 		_visuals.position.y = move_toward(_visuals.position.y, 0.0, delta * 0.5)
 		_visuals.rotation.z = move_toward(_visuals.rotation.z, 0.0, delta * 4.0)
+		
+		# Return limbs to rest and idle breathing
+		if _leg_l and _leg_r:
+			_leg_l.rotation.x = lerp_angle(_leg_l.rotation.x, 0.0, delta * 10.0)
+			_leg_r.rotation.x = lerp_angle(_leg_r.rotation.x, 0.0, delta * 10.0)
+		if _arm_l and _arm_r:
+			if not _is_interacting_held:
+				_arm_l.rotation.x = lerp_angle(_arm_l.rotation.x, 0.0, delta * 10.0)
+				_arm_r.rotation.x = lerp_angle(_arm_r.rotation.x, 0.0, delta * 10.0)
+			else:
+				_arm_r.rotation.x = lerp_angle(_arm_r.rotation.x, -1.2, delta * 12.0)
+		
+		if _torso:
+			_torso.position.y = 0.68 + sin(Time.get_ticks_msec() * 0.003) * 0.015
+	
+	# Animate stun stars if visible
+	if _stun_stars and _stun_stars.visible:
+		_stun_stars.rotation.y += delta * 10.0
 	
 	move_and_slide()
 	
@@ -346,6 +587,9 @@ func stun_player(safe_pos: Vector3 = Vector3.ZERO) -> void:
 		_active_held_interactable.release_hold(self)
 		_active_held_interactable = null
 	
+	if _stun_stars:
+		_stun_stars.visible = true
+	
 	# Flash red and spin
 	var tween := create_tween()
 	tween.tween_property(_visuals, "rotation:y", _visuals.rotation.y + TAU * 2.0, 0.6)
@@ -354,4 +598,6 @@ func stun_player(safe_pos: Vector3 = Vector3.ZERO) -> void:
 	var target := safe_pos if safe_pos != Vector3.ZERO else current_checkpoint
 	global_position = target
 	velocity = Vector3.ZERO
+	if _stun_stars:
+		_stun_stars.visible = false
 	is_stunned = false

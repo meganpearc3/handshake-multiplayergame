@@ -21,8 +21,8 @@ var _bulkhead_door: Node3D = null
 var _audio_mgr: Node = null
 
 # Colors and names for buttons
-const BUTTON_NAMES = ["SQUARE [RED]", "CIRCLE [BLUE]", "TRIANGLE [GREEN]", "STAR [GOLD]"]
-const BUTTON_COLORS = [
+const BUTTON_NAMES: Array[String] = ["SQUARE [RED]", "CIRCLE [BLUE]", "TRIANGLE [GREEN]", "STAR [GOLD]"]
+const BUTTON_COLORS: Array[Color] = [
 	Color(0.95, 0.2, 0.2), # 1
 	Color(0.2, 0.5, 1.0), # 2
 	Color(0.2, 0.9, 0.3), # 3
@@ -33,6 +33,14 @@ func _ready() -> void:
 	_audio_mgr = get_node_or_null("/root/AudioManager")
 	_generate_random_sequence()
 	_build_room_nodes()
+
+func _process(delta: float) -> void:
+	for btn in _spark_buttons:
+		if is_instance_valid(btn):
+			var holo: MeshInstance3D = btn.get_meta("holo_mesh")
+			if holo:
+				holo.rotation.y += delta * 2.0
+				holo.position.y = 1.85 + sin(Time.get_ticks_msec() * 0.004) * 0.05
 
 func _generate_random_sequence() -> void:
 	target_sequence.clear()
@@ -50,29 +58,75 @@ func _build_room_nodes() -> void:
 	# Console table mesh
 	var desk := MeshInstance3D.new()
 	var desk_box := BoxMesh.new()
-	desk_box.size = Vector3(1.6, 1.0, 1.0)
+	desk_box.size = Vector3(2.2, 1.0, 1.2)
 	desk.mesh = desk_box
 	var desk_mat := StandardMaterial3D.new()
-	desk_mat.albedo_color = Color(0.15, 0.18, 0.24)
-	desk_mat.roughness = 0.5
+	desk_mat.albedo_color = Color(0.12, 0.15, 0.20)
+	desk_mat.roughness = 0.4
 	desk.material_override = desk_mat
 	desk.position = Vector3(0, 0.5, 0)
 	_cipher_console.add_child(desk)
 	
-	# Console screen
+	# Main Center Console screen
 	var screen := MeshInstance3D.new()
 	var screen_box := BoxMesh.new()
-	screen_box.size = Vector3(1.2, 0.8, 0.1)
+	screen_box.size = Vector3(1.4, 0.9, 0.1)
 	screen.mesh = screen_box
 	var screen_mat := StandardMaterial3D.new()
-	screen_mat.albedo_color = Color(0.05, 0.1, 0.2)
+	screen_mat.albedo_color = Color(0.04, 0.08, 0.16)
 	screen_mat.emission_enabled = true
-	screen_mat.emission = Color(0.1, 0.4, 0.8)
-	screen_mat.emission_energy_multiplier = 0.6
+	screen_mat.emission = Color(0.1, 0.45, 0.9)
+	screen_mat.emission_energy_multiplier = 0.8
 	screen.material_override = screen_mat
-	screen.position = Vector3(0, 1.35, -0.3)
+	screen.position = Vector3(0, 1.40, -0.35)
 	screen.rotation.x = -0.2
 	_cipher_console.add_child(screen)
+	
+	# Angled Left & Right Auxiliary Wing Screens
+	for side in [-1, 1]:
+		var wing := MeshInstance3D.new()
+		var wbox := BoxMesh.new()
+		wbox.size = Vector3(0.65, 0.7, 0.08)
+		wing.mesh = wbox
+		var wmat := StandardMaterial3D.new()
+		wmat.albedo_color = Color(0.03, 0.06, 0.12)
+		wmat.emission_enabled = true
+		wmat.emission = Color(0.08, 0.6, 0.7)
+		wmat.emission_energy_multiplier = 0.6
+		wing.material_override = wmat
+		wing.position = Vector3(side * 0.95, 1.35, -0.28)
+		wing.rotation.y = -side * 0.35
+		wing.rotation.x = -0.15
+		_cipher_console.add_child(wing)
+	
+	# Server Mainframe Rack beside the desk
+	var rack := MeshInstance3D.new()
+	var rbox := BoxMesh.new()
+	rbox.size = Vector3(0.9, 2.6, 0.9)
+	rack.mesh = rbox
+	var rmat := StandardMaterial3D.new()
+	rmat.albedo_color = Color(0.08, 0.10, 0.13)
+	rmat.roughness = 0.5
+	rack.material_override = rmat
+	rack.position = Vector3(-1.4, 1.3, -0.2)
+	_cipher_console.add_child(rack)
+	
+	# Blinking Server LED Indicators on Rack
+	for r_row in range(5):
+		for r_col in range(3):
+			var led := MeshInstance3D.new()
+			var lbox := BoxMesh.new()
+			lbox.size = Vector3(0.06, 0.06, 0.02)
+			led.mesh = lbox
+			var lmat := StandardMaterial3D.new()
+			var led_col: Color = BUTTON_COLORS[(r_row + r_col) % 4]
+			lmat.albedo_color = led_col
+			lmat.emission_enabled = true
+			lmat.emission = led_col
+			lmat.emission_energy_multiplier = 1.8
+			led.material_override = lmat
+			led.position = Vector3(-1.65 + (r_col * 0.18), 0.6 + (r_row * 0.38), 0.26)
+			_cipher_console.add_child(led)
 	
 	# Cipher Screen 3D text
 	_cipher_display_label = Label3D.new()
@@ -124,30 +178,70 @@ func _build_room_nodes() -> void:
 		ped.position = Vector3(0, 0.45, 0)
 		btn_node.add_child(ped)
 		
-		# Button top
+		# Pedestal Collar & Base Trim
+		var trim := MeshInstance3D.new()
+		var tmesh := TorusMesh.new()
+		tmesh.inner_radius = 0.44
+		tmesh.outer_radius = 0.52
+		trim.mesh = tmesh
+		var trim_mat := StandardMaterial3D.new()
+		trim_mat.albedo_color = Color(0.9, 0.75, 0.25)
+		trim_mat.metallic = 0.95
+		trim.material_override = trim_mat
+		trim.position = Vector3(0, 0.90, 0)
+		btn_node.add_child(trim)
+		
+		# Button Dome Cap (Heavy Arcade Style)
 		var btn_cap := MeshInstance3D.new()
 		var cap_cyl := CylinderMesh.new()
 		cap_cyl.top_radius = 0.35
 		cap_cyl.bottom_radius = 0.35
-		cap_cyl.height = 0.15
+		cap_cyl.height = 0.16
 		btn_cap.mesh = cap_cyl
 		var cap_mat := StandardMaterial3D.new()
 		cap_mat.albedo_color = BUTTON_COLORS[i]
 		cap_mat.emission_enabled = true
 		cap_mat.emission = BUTTON_COLORS[i]
-		cap_mat.emission_energy_multiplier = 0.8
+		cap_mat.emission_energy_multiplier = 1.4
 		btn_cap.material_override = cap_mat
-		btn_cap.position = Vector3(0, 0.95, 0)
+		btn_cap.position = Vector3(0, 0.96, 0)
 		btn_node.add_child(btn_cap)
 		btn_node.set_meta("cap_mesh", btn_cap)
 		btn_node.set_meta("cap_mat", cap_mat)
+		
+		# Floating 3D Holographic Symbol
+		var holo := MeshInstance3D.new()
+		if i == 0:
+			var sbox := BoxMesh.new()
+			sbox.size = Vector3(0.25, 0.25, 0.25)
+			holo.mesh = sbox
+		elif i == 1:
+			var scyl := CylinderMesh.new()
+			scyl.top_radius = 0.16
+			scyl.bottom_radius = 0.16
+			scyl.height = 0.08
+			holo.mesh = scyl
+			holo.rotation.x = PI * 0.5
+		elif i == 2:
+			var sprism := PrismMesh.new()
+			sprism.size = Vector3(0.28, 0.28, 0.14)
+			holo.mesh = sprism
+		else:
+			var sstar := PrismMesh.new()
+			sstar.size = Vector3(0.32, 0.32, 0.12)
+			holo.mesh = sstar
+		holo.material_override = cap_mat
+		holo.position = Vector3(0, 1.85, 0)
+		btn_node.add_child(holo)
+		btn_node.set_meta("holo_mesh", holo)
 		
 		# 3D Label on button
 		var lbl := Label3D.new()
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.pixel_size = 0.005
-		lbl.font_size = 34
-		lbl.outline_size = 6
+		lbl.font_size = 32
+		lbl.outline_size = 8
+		lbl.outline_modulate = Color(0, 0, 0, 0.95)
 		lbl.modulate = BUTTON_COLORS[i]
 		lbl.position = Vector3(0, 1.45, 0)
 		lbl.text = "BUTTON %d\n%s" % [btn_num, BUTTON_NAMES[i]]

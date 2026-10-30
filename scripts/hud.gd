@@ -3,6 +3,8 @@ extends CanvasLayer
 
 signal restart_requested()
 
+const _phase_names: Array[String] = ["1. HACK OVERRIDE", "2. LASER GALLERY", "3. DIAMOND VAULT", "4. GETAWAY VAN"]
+
 var _objective_label: Label = null
 var _timer_label: Label = null
 var _alarm_label: Label = null
@@ -12,6 +14,7 @@ var _radio_box: PanelContainer = null
 var _radio_text: Label = null
 var _p1_card_label: Label = null
 var _p2_card_label: Label = null
+var _phase_labels: Array[Label] = []
 
 var _time_elapsed: float = 0.0
 var _escape_time_left: float = 60.0
@@ -31,31 +34,35 @@ func _build_hud_ui() -> void:
 	# Top bar for Objectives & Stats
 	var top_bar := PanelContainer.new()
 	top_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top_bar.offset_bottom = 75.0
+	top_bar.offset_bottom = 82.0
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.08, 0.12, 0.88)
+	sb.bg_color = Color(0.06, 0.08, 0.12, 0.92)
 	sb.border_width_bottom = 2
 	sb.border_color = Color(0.18, 0.5, 0.8, 0.8)
-	sb.set_content_margin_all(10.0)
+	sb.set_content_margin_all(8.0)
 	top_bar.add_theme_stylebox_override("panel", sb)
 	root.add_child(top_bar)
 	
+	var top_vbox := VBoxContainer.new()
+	top_vbox.add_theme_constant_override("separation", 4)
+	top_bar.add_child(top_vbox)
+	
 	var h_box := HBoxContainer.new()
 	h_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	top_bar.add_child(h_box)
+	top_vbox.add_child(h_box)
 	
 	# Objective text
 	_objective_label = Label.new()
 	_objective_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_objective_label.text = "OBJECTIVE: Infiltrate Museum & Override Security Bulkhead"
-	_objective_label.add_theme_font_size_override("font_size", 19)
+	_objective_label.add_theme_font_size_override("font_size", 18)
 	_objective_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	h_box.add_child(_objective_label)
 	
 	# Alarm counter
 	_alarm_label = Label.new()
 	_alarm_label.text = "ALARMS: 0"
-	_alarm_label.add_theme_font_size_override("font_size", 18)
+	_alarm_label.add_theme_font_size_override("font_size", 17)
 	_alarm_label.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
 	h_box.add_child(_alarm_label)
 	
@@ -66,17 +73,40 @@ func _build_hud_ui() -> void:
 	# Mission Timer
 	_timer_label = Label.new()
 	_timer_label.text = "TIME: 00:00"
-	_timer_label.add_theme_font_size_override("font_size", 18)
+	_timer_label.add_theme_font_size_override("font_size", 17)
 	_timer_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
 	h_box.add_child(_timer_label)
+	
+	# Progress Phase Ribbon
+	var steps_box := HBoxContainer.new()
+	steps_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	steps_box.add_theme_constant_override("separation", 12)
+	top_vbox.add_child(steps_box)
+	
+	for i in range(_phase_names.size()):
+		if i > 0:
+			var arrow := Label.new()
+			arrow.text = "➔"
+			arrow.add_theme_font_size_override("font_size", 11)
+			arrow.add_theme_color_override("font_color", Color(0.35, 0.45, 0.55))
+			steps_box.add_child(arrow)
+		
+		var pill := Label.new()
+		pill.text = _phase_names[i]
+		pill.add_theme_font_size_override("font_size", 12)
+		pill.add_theme_color_override("font_color", Color(0.45, 0.55, 0.65))
+		steps_box.add_child(pill)
+		_phase_labels.append(pill)
+	
+	set_phase(1)
 	
 	# Escape Banner (Appears in center top when diamond stolen)
 	_escape_banner = PanelContainer.new()
 	_escape_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_escape_banner.offset_top = 85.0
+	_escape_banner.offset_top = 92.0
 	_escape_banner.offset_left = -220.0
 	_escape_banner.offset_right = 220.0
-	_escape_banner.offset_bottom = 145.0
+	_escape_banner.offset_bottom = 152.0
 	var esb := StyleBoxFlat.new()
 	esb.bg_color = Color(0.7, 0.08, 0.08, 0.92)
 	esb.border_width_left = 3
@@ -169,6 +199,29 @@ func _build_hud_ui() -> void:
 func set_objective(text: String) -> void:
 	if _objective_label:
 		_objective_label.text = "OBJECTIVE: " + text
+	
+	if text.findn("Override") != -1 or text.findn("Infiltrate") != -1:
+		set_phase(1)
+	elif text.findn("Laser") != -1 or text.findn("Keycard") != -1:
+		set_phase(2)
+	elif text.findn("Vault") != -1 or text.findn("Pressure") != -1:
+		set_phase(3)
+	elif text.findn("ESCAPE") != -1 or text.findn("Van") != -1:
+		set_phase(4)
+
+func set_phase(phase_num: int) -> void:
+	for i in range(_phase_labels.size()):
+		var lbl: Label = _phase_labels[i]
+		var step_idx := i + 1
+		if step_idx < phase_num:
+			lbl.text = "✔ " + _phase_names[i]
+			lbl.add_theme_color_override("font_color", Color(0.3, 0.9, 0.5))
+		elif step_idx == phase_num:
+			lbl.text = "▶ " + _phase_names[i]
+			lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		else:
+			lbl.text = "   " + _phase_names[i]
+			lbl.add_theme_color_override("font_color", Color(0.45, 0.55, 0.65))
 
 func update_alarms(count: int) -> void:
 	if _alarm_label:

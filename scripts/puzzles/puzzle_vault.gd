@@ -20,6 +20,8 @@ var _vault_console: Node3D = null
 var _vault_door: Node3D = null
 var _diamond_pedestal: Node3D = null
 var _audio_mgr: Node = null
+var _conduit_materials: Array[StandardMaterial3D] = []
+var _gem_sparkles: Array[Node3D] = []
 
 # 3-digit vault code
 const VAULT_CODE := [7, 4, 2]
@@ -37,6 +39,10 @@ func _build_vault_chamber() -> void:
 	add_child(_plate_1)
 	add_child(_plate_2)
 	
+	# Illuminated Floor Power Conduits leading from plates to central console
+	_create_power_conduit(Vector3(-4.0, 0.015, -37.0), Vector3(0.0, 0.015, -39.0))
+	_create_power_conduit(Vector3(4.0, 0.015, -37.0), Vector3(0.0, 0.015, -39.0))
+	
 	# 2. Vault Security Console in Center (Z = -39.0)
 	_vault_console = _create_vault_console(Vector3(0, 0, -39.0))
 	add_child(_vault_console)
@@ -51,6 +57,40 @@ func _build_vault_chamber() -> void:
 	
 	# 5. Inner Vault & Midnight Diamond (Z = -47.0)
 	_build_midnight_diamond(Vector3(0, 0, -47.0))
+
+func _create_power_conduit(start_pos: Vector3, end_pos: Vector3) -> void:
+	var diff := end_pos - start_pos
+	var length := diff.length()
+	var mid := (start_pos + end_pos) * 0.5
+	
+	# Conduit steel casing
+	var case_mesh := MeshInstance3D.new()
+	var cbox := BoxMesh.new()
+	cbox.size = Vector3(0.3, 0.02, length)
+	case_mesh.mesh = cbox
+	var cmat := StandardMaterial3D.new()
+	cmat.albedo_color = Color(0.12, 0.14, 0.18)
+	cmat.metallic = 0.8
+	case_mesh.material_override = cmat
+	case_mesh.position = mid
+	case_mesh.look_at_from_position(mid, end_pos, Vector3.UP)
+	add_child(case_mesh)
+	
+	# Luminous conduit core
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.12, 0.028, length)
+	mesh.mesh = box
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.8, 0.2, 0.2)
+	mat.emission_enabled = true
+	mat.emission = Color(0.8, 0.2, 0.2)
+	mat.emission_energy_multiplier = 0.8
+	mesh.material_override = mat
+	mesh.position = mid
+	mesh.look_at_from_position(mid, end_pos, Vector3.UP)
+	add_child(mesh)
+	_conduit_materials.append(mat)
 
 func _create_pressure_plate(pos: Vector3, plate_idx: int) -> Node3D:
 	var root := Node3D.new()
@@ -266,6 +306,42 @@ func _build_vault_door(pos: Vector3) -> void:
 	door_disc.add_child(wheel)
 	_vault_door.set_meta("wheel", wheel)
 
+	# Vault Lock Wheel Spokes
+	for i in range(4):
+		var spoke := MeshInstance3D.new()
+		var spbox := BoxMesh.new()
+		spbox.size = Vector3(0.08, 0.08, 1.3)
+		spoke.mesh = spbox
+		spoke.material_override = wmat
+		spoke.rotation.y = float(i) * (PI * 0.25)
+		wheel.add_child(spoke)
+	
+	# Center dial hub
+	var hub := MeshInstance3D.new()
+	var hub_cyl := CylinderMesh.new()
+	hub_cyl.top_radius = 0.22
+	hub_cyl.bottom_radius = 0.22
+	hub_cyl.height = 0.16
+	hub.mesh = hub_cyl
+	hub.material_override = wmat
+	hub.position = Vector3(0, 0.05, 0)
+	door_disc.add_child(hub)
+
+	# 8 Heavy locking lugs radiating along outer circumference
+	for i in range(8):
+		var angle := float(i) * (PI * 0.25)
+		var lug := MeshInstance3D.new()
+		var lbox := BoxMesh.new()
+		lbox.size = Vector3(0.3, 0.5, 0.3)
+		lug.mesh = lbox
+		var lmat := StandardMaterial3D.new()
+		lmat.albedo_color = Color(0.2, 0.24, 0.3)
+		lmat.metallic = 0.95
+		lug.material_override = lmat
+		lug.position = Vector3(cos(angle) * 2.3, 0.0, sin(angle) * 2.3)
+		lug.rotation.y = -angle
+		door_disc.add_child(lug)
+
 func _build_midnight_diamond(pos: Vector3) -> void:
 	_diamond_pedestal = Node3D.new()
 	_diamond_pedestal.position = pos
@@ -328,6 +404,21 @@ func _build_midnight_diamond(pos: Vector3) -> void:
 	gem_bottom.position = Vector3(0, 0.15, 0)
 	gem_root.add_child(gem_bottom)
 	
+	# Orbiting sparkle motes
+	for i in range(4):
+		var spark := MeshInstance3D.new()
+		var sbox := BoxMesh.new()
+		sbox.size = Vector3(0.08, 0.08, 0.08)
+		spark.mesh = sbox
+		var smat := StandardMaterial3D.new()
+		smat.albedo_color = Color(0.7, 0.95, 1.0)
+		smat.emission_enabled = true
+		smat.emission = Color(0.6, 0.95, 1.0)
+		smat.emission_energy_multiplier = 4.0
+		spark.material_override = smat
+		gem_root.add_child(spark)
+		_gem_sparkles.append(spark)
+	
 	# Spotlight focused on diamond
 	var spot := SpotLight3D.new()
 	spot.position = Vector3(0, 4.5, 0)
@@ -352,12 +443,22 @@ func _build_midnight_diamond(pos: Vector3) -> void:
 	_diamond_pedestal.set_meta("interactable", inter)
 
 func _process(delta: float) -> void:
-	# Spin the floating diamond
+	# Spin and float the Midnight Diamond
 	if not is_diamond_collected and _diamond_pedestal:
 		var gem: Node3D = _diamond_pedestal.get_meta("gem_root")
 		if gem:
 			gem.rotation.y += delta * 1.5
-			gem.position.y = 1.55 + sin(Time.get_ticks_msec() * 0.003) * 0.08
+			gem.position.y = 1.55 + sin(Time.get_ticks_msec() * 0.003) * 0.1
+			# Orbit sparkles around the diamond
+			var time := Time.get_ticks_msec() * 0.003
+			for i in range(_gem_sparkles.size()):
+				var spark: Node3D = _gem_sparkles[i]
+				if is_instance_valid(spark):
+					var angle := time * 2.0 + float(i) * (PI * 0.5)
+					var r := 0.6 + sin(time * 3.0 + i) * 0.15
+					spark.position = Vector3(cos(angle) * r, sin(time * 2.5 + i) * 0.25, sin(angle) * r)
+					spark.rotation.x += delta * 3.0
+					spark.rotation.y += delta * 2.0
 
 func _on_plate_body_entered(plate_idx: int, _body: Node3D) -> void:
 	if plate_idx == 1:
@@ -395,6 +496,10 @@ func _update_plate_visuals() -> void:
 		rmat2.emission = c
 
 func _power_up_console() -> void:
+	for cmat in _conduit_materials:
+		cmat.albedo_color = Color(0.2, 0.9, 0.4)
+		cmat.emission = Color(0.2, 0.9, 0.4)
+		cmat.emission_energy_multiplier = 2.0
 	var smat: StandardMaterial3D = _vault_console.get_meta("screen_mat")
 	if smat:
 		smat.emission = Color(0.2, 0.8, 1.0)

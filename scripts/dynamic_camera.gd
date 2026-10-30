@@ -14,6 +14,7 @@ var _shake_amount: float = 0.0
 
 func _ready() -> void:
 	current = true
+	fov = 54.0
 	# Fixed isometric / angled overhead pitch
 	rotation_degrees = Vector3(-48.0, 0.0, 0.0)
 

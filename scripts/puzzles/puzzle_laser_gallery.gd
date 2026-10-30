@@ -279,10 +279,22 @@ func _build_exit_barrier() -> void:
 	_keycard_terminal.set_meta("interactable", t_inter)
 	add_child(_keycard_terminal)
 
+func _process(delta: float) -> void:
+	if not _has_keycard_been_collected and _keycard_pedestal:
+		var card: MeshInstance3D = _keycard_pedestal.get_meta("card_mesh")
+		if card:
+			card.rotation.y += delta * 2.5
+			card.position.y = 1.25 + sin(Time.get_ticks_msec() * 0.005) * 0.06
+
 func _on_switch_a_hold(is_holding: bool) -> void:
 	for laser in _lasers_group_a:
 		if is_instance_valid(laser):
 			laser.set_laser_active(not is_holding)
+	if _switch_a:
+		var lever: MeshInstance3D = _switch_a.get_meta("lever_mesh")
+		if lever:
+			var tw := create_tween()
+			tw.tween_property(lever, "rotation:x", 0.65 if is_holding else 0.0, 0.12)
 	if _audio_mgr:
 		if is_holding:
 			_audio_mgr.play_click()
@@ -293,6 +305,11 @@ func _on_switch_b_hold(is_holding: bool) -> void:
 	for laser in _lasers_group_b:
 		if is_instance_valid(laser):
 			laser.set_laser_active(not is_holding)
+	if _switch_b:
+		var lever: MeshInstance3D = _switch_b.get_meta("lever_mesh")
+		if lever:
+			var tw := create_tween()
+			tw.tween_property(lever, "rotation:x", 0.65 if is_holding else 0.0, 0.12)
 	if _audio_mgr:
 		if is_holding:
 			_audio_mgr.play_click()

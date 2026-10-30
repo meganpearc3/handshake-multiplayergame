@@ -21,37 +21,68 @@ func _ready() -> void:
 	_build_laser()
 
 func _build_laser() -> void:
-	# Laser beam line
+	# 1. Outer Crimson Laser Glow Beam
 	_beam_mesh = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.035
-	cyl.bottom_radius = 0.035
+	cyl.top_radius = 0.045
+	cyl.bottom_radius = 0.045
 	cyl.height = beam_width
+	cyl.radial_segments = 12
 	_beam_mesh.mesh = cyl
 	_beam_mesh.rotation.z = PI * 0.5 # Horizontal beam
 	
 	_mat = StandardMaterial3D.new()
-	_mat.albedo_color = Color(1.0, 0.05, 0.05, 0.9)
+	_mat.albedo_color = Color(1.0, 0.05, 0.05, 0.85)
+	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat.emission_enabled = true
-	_mat.emission = Color(1.0, 0.1, 0.1)
-	_mat.emission_energy_multiplier = 4.0
+	_mat.emission = Color(1.0, 0.05, 0.05)
+	_mat.emission_energy_multiplier = 5.0
 	_beam_mesh.material_override = _mat
 	add_child(_beam_mesh)
 	
-	# Emitters on both sides
+	# 2. Inner White-Hot Laser Core
+	var core := MeshInstance3D.new()
+	var ccyl := CylinderMesh.new()
+	ccyl.top_radius = 0.016
+	ccyl.bottom_radius = 0.016
+	ccyl.height = beam_width
+	ccyl.radial_segments = 8
+	core.mesh = ccyl
+	core.rotation.z = PI * 0.5
+	var cmat := StandardMaterial3D.new()
+	cmat.albedo_color = Color(1.0, 0.95, 0.95)
+	cmat.emission_enabled = true
+	cmat.emission = Color(1.0, 1.0, 1.0)
+	cmat.emission_energy_multiplier = 3.0
+	core.material_override = cmat
+	add_child(core)
+	
+	# 3. Heavy Wall Emitter Fixtures with Ruby Focusing Crystals
 	for side in [-1, 1]:
 		var emitter := MeshInstance3D.new()
 		var box := BoxMesh.new()
-		box.size = Vector3(0.2, 0.25, 0.25)
+		box.size = Vector3(0.24, 0.32, 0.32)
 		emitter.mesh = box
 		var emat := StandardMaterial3D.new()
-		emat.albedo_color = Color(0.2, 0.22, 0.25)
-		emat.metallic = 0.8
+		emat.albedo_color = Color(0.14, 0.16, 0.20)
+		emat.metallic = 0.9
+		emat.roughness = 0.2
 		emitter.material_override = emat
 		emitter.position = Vector3(side * (beam_width * 0.5), 0, 0)
 		add_child(emitter)
+		
+		# Ruby Focusing Lens
+		var lens := MeshInstance3D.new()
+		var ltorus := TorusMesh.new()
+		ltorus.inner_radius = 0.04
+		ltorus.outer_radius = 0.08
+		lens.mesh = ltorus
+		lens.rotation.z = PI * 0.5
+		lens.material_override = _mat
+		lens.position = Vector3(side * ((beam_width * 0.5) - 0.10), 0, 0)
+		add_child(lens)
 	
-	# Collision Area3D
+	# Collision Area3D (Preserves exact gameplay detection)
 	_area = Area3D.new()
 	_area.collision_layer = 0
 	_area.collision_mask = 2 # Players
