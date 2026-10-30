@@ -2,12 +2,14 @@ class_name HeistHUD
 extends CanvasLayer
 
 signal restart_requested()
+signal view_toggle_requested()
 
 const _phase_names: Array[String] = ["1. HACK OVERRIDE", "2. LASER GALLERY", "3. DIAMOND VAULT", "4. GETAWAY VAN"]
 
 var _objective_label: Label = null
 var _timer_label: Label = null
 var _alarm_label: Label = null
+var _view_btn: Button = null
 var _escape_banner: PanelContainer = null
 var _escape_timer_label: Label = null
 var _radio_box: PanelContainer = null
@@ -76,6 +78,19 @@ func _build_hud_ui() -> void:
 	_timer_label.add_theme_font_size_override("font_size", 17)
 	_timer_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
 	h_box.add_child(_timer_label)
+	
+	var sep2 := VSeparator.new()
+	sep2.custom_minimum_size = Vector2(16, 0)
+	h_box.add_child(sep2)
+	
+	# View Mode Toggle Button
+	_view_btn = Button.new()
+	_view_btn.text = " [V] VIEW: FP SPLIT "
+	_view_btn.custom_minimum_size = Vector2(165, 30)
+	_view_btn.add_theme_font_size_override("font_size", 13)
+	_view_btn.add_theme_color_override("font_color", Color(0.35, 0.9, 1.0))
+	_view_btn.pressed.connect(func(): view_toggle_requested.emit())
+	h_box.add_child(_view_btn)
 	
 	# Progress Phase Ribbon
 	var steps_box := HBoxContainer.new()
@@ -222,6 +237,10 @@ func set_phase(phase_num: int) -> void:
 		else:
 			lbl.text = "   " + _phase_names[i]
 			lbl.add_theme_color_override("font_color", Color(0.45, 0.55, 0.65))
+
+func update_view_mode_label(mode_name: String) -> void:
+	if _view_btn:
+		_view_btn.text = " [V] VIEW: " + mode_name
 
 func update_alarms(count: int) -> void:
 	if _alarm_label:

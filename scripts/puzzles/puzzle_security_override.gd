@@ -4,6 +4,7 @@ extends Node3D
 signal puzzle_solved()
 signal alarm_triggered()
 signal sequence_updated(seq: Array)
+signal button_pressed(btn_name: String, is_correct: bool, current_count: int, total_count: int)
 
 const InteractableScript = preload("res://scripts/interactable.gd")
 
@@ -356,11 +357,14 @@ func _on_spark_button_pressed(btn_num: int, btn_node: Node3D) -> void:
 		# Wrong button! Trigger alarm strike
 		if _audio_mgr:
 			_audio_mgr.play_buzzer()
+		button_pressed.emit(BUTTON_NAMES[btn_num - 1], false, 0, target_sequence.size())
 		alarm_triggered.emit()
 		current_input.clear()
 		_cipher_display_label.text = "ERROR: CODE MISMATCH!\nRE-HACK CONSOLE"
 		_cipher_display_label.modulate = Color(1.0, 0.3, 0.3)
 		return
+	
+	button_pressed.emit(BUTTON_NAMES[btn_num - 1], true, current_input.size(), target_sequence.size())
 	
 	# Check if sequence is complete
 	if current_input.size() == target_sequence.size():

@@ -10,6 +10,11 @@ signal diamond_picked_up()
 @export var character_name: String = "Cipher"
 @export var base_speed: float = 6.0
 @export var acceleration: float = 18.0
+@export var is_first_person: bool = true
+
+var fp_yaw: float = 0.0
+var fp_pitch: float = 0.0
+var turn_speed: float = 3.2
 
 var is_stunned: bool = false
 var has_diamond: bool = false
@@ -39,6 +44,11 @@ var _overhead_label: Label3D = null
 var _halo_ring: MeshInstance3D = null
 var _interaction_detector: Area3D = null
 
+var _fp_cam_anchor: Node3D = null
+var _fp_arms: Node3D = null
+var _fp_arm_l: Node3D = null
+var _fp_arm_r: Node3D = null
+
 # State tracking
 var _nearby_interactables: Array = []
 var _active_held_interactable = null
@@ -52,6 +62,7 @@ func _ready() -> void:
 	
 	_configure_inputs()
 	_build_procedural_model()
+	_build_fp_rig()
 	current_checkpoint = global_position
 	
 	_interaction_detector = Area3D.new()
@@ -432,6 +443,111 @@ func _build_procedural_model() -> void:
 	col_shape.position = Vector3(0, 0.7, 0)
 	add_child(col_shape)
 
+func _build_fp_rig() -> void:
+	_fp_cam_anchor = Node3D.new()
+	_fp_cam_anchor.name = "FPCamAnchor"
+	_fp_cam_anchor.position = Vector3(0, 1.28, -0.28)
+	add_child(_fp_cam_anchor)
+	
+	_fp_arms = Node3D.new()
+	_fp_arms.name = "FPArms"
+	_fp_cam_anchor.add_child(_fp_arms)
+	
+	var main_col := Color(0.05, 0.65, 1.0) if player_id == 1 else Color(1.0, 0.52, 0.05)
+	var gear_col := Color(0.08, 0.10, 0.14)
+	var glow_col := Color(0.2, 0.95, 1.0) if player_id == 1 else Color(1.0, 0.85, 0.2)
+	
+	var mat_arm := StandardMaterial3D.new()
+	mat_arm.albedo_color = main_col
+	mat_arm.roughness = 0.35
+	
+	var mat_glove := StandardMaterial3D.new()
+	mat_glove.albedo_color = gear_col
+	mat_glove.roughness = 0.5
+	
+	var mat_cuff := StandardMaterial3D.new()
+	mat_cuff.albedo_color = glow_col
+	mat_cuff.emission_enabled = true
+	mat_cuff.emission = glow_col
+	mat_cuff.emission_energy_multiplier = 2.5
+	
+	# Left arm
+	_fp_arm_l = Node3D.new()
+	_fp_arm_l.position = Vector3(-0.24, -0.20, -0.38)
+	_fp_arm_l.rotation = Vector3(0.25, -0.2, 0.1)
+	_fp_arms.add_child(_fp_arm_l)
+	
+	var mesh_l := MeshInstance3D.new()
+	var cap_l := CapsuleMesh.new()
+	cap_l.radius = 0.045
+	cap_l.height = 0.32
+	mesh_l.mesh = cap_l
+	mesh_l.material_override = mat_arm
+	mesh_l.rotation.x = PI * 0.4
+	_fp_arm_l.add_child(mesh_l)
+	
+	var glove_l := MeshInstance3D.new()
+	var gbox_l := BoxMesh.new()
+	gbox_l.size = Vector3(0.07, 0.06, 0.14)
+	glove_l.mesh = gbox_l
+	glove_l.material_override = mat_glove
+	glove_l.position = Vector3(0, 0.04, -0.16)
+	_fp_arm_l.add_child(glove_l)
+	
+	var cuff_l := MeshInstance3D.new()
+	var cbox_l := BoxMesh.new()
+	cbox_l.size = Vector3(0.075, 0.02, 0.03)
+	cuff_l.mesh = cbox_l
+	cuff_l.material_override = mat_cuff
+	cuff_l.position = Vector3(0, 0.06, -0.10)
+	_fp_arm_l.add_child(cuff_l)
+	
+	# Right arm
+	_fp_arm_r = Node3D.new()
+	_fp_arm_r.position = Vector3(0.24, -0.20, -0.38)
+	_fp_arm_r.rotation = Vector3(0.25, 0.2, -0.1)
+	_fp_arms.add_child(_fp_arm_r)
+	
+	var mesh_r := MeshInstance3D.new()
+	mesh_r.mesh = cap_l
+	mesh_r.material_override = mat_arm
+	mesh_r.rotation.x = PI * 0.4
+	_fp_arm_r.add_child(mesh_r)
+	
+	var glove_r := MeshInstance3D.new()
+	glove_r.mesh = gbox_l
+	glove_r.material_override = mat_glove
+	glove_r.position = Vector3(0, 0.04, -0.16)
+	_fp_arm_r.add_child(glove_r)
+	
+	var cuff_r := MeshInstance3D.new()
+	cuff_r.mesh = cbox_l
+	cuff_r.material_override = mat_cuff
+	cuff_r.position = Vector3(0, 0.06, -0.10)
+	_fp_arm_r.add_child(cuff_r)
+	
+	set_first_person(is_first_person)
+
+func set_first_person(enabled: bool) -> void:
+	is_first_person = enabled
+	if _fp_arms:
+		_fp_arms.visible = enabled
+	if _overhead_label:
+		_overhead_label.visible = not enabled
+	if _halo_ring:
+		_halo_ring.visible = not enabled
+
+func get_fp_cam_transform() -> Transform3D:
+	if _fp_cam_anchor:
+		return _fp_cam_anchor.global_transform
+	return global_transform.translated_local(Vector3(0, 1.28, -0.28))
+
+func _unhandled_input(event: InputEvent) -> void:
+	if player_id == 1 and is_first_person:
+		if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			fp_yaw -= event.relative.x * 0.005
+			fp_pitch = clampf(fp_pitch - event.relative.y * 0.005, -0.9, 0.9)
+
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= 18.0 * delta
@@ -442,34 +558,70 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	
-	# Read movement inputs
-	var input_dir := Vector2.ZERO
-	if Input.is_action_pressed(act_up):
-		input_dir.y -= 1.0
-	if Input.is_action_pressed(act_down):
-		input_dir.y += 1.0
-	if Input.is_action_pressed(act_left):
-		input_dir.x -= 1.0
-	if Input.is_action_pressed(act_right):
-		input_dir.x += 1.0
-	input_dir = input_dir.normalized()
+	var move_vec := Vector3.ZERO
 	
-	# Isometric / elevated diagonal adjustment
-	# Camera is angled at isometric view (looking down along +Z and slightly pitched)
-	var move_vec := Vector3(input_dir.x, 0.0, input_dir.y)
+	if is_first_person:
+		# First-person keyboard controls: A/D turn view, W/S walk forward/back
+		if Input.is_action_pressed(act_left):
+			fp_yaw += turn_speed * delta
+		if Input.is_action_pressed(act_right):
+			fp_yaw -= turn_speed * delta
+		
+		var forward := Vector3(-sin(fp_yaw), 0.0, -cos(fp_yaw))
+		var right_dir := Vector3(cos(fp_yaw), 0.0, -sin(fp_yaw))
+		
+		if Input.is_action_pressed(act_up):
+			move_vec += forward
+		if Input.is_action_pressed(act_down):
+			move_vec -= forward
+		
+		if Input.is_key_pressed(KEY_SHIFT):
+			if Input.is_action_pressed(act_left):
+				move_vec -= right_dir
+			if Input.is_action_pressed(act_right):
+				move_vec += right_dir
+		
+		move_vec = move_vec.normalized()
+		
+		_visuals.rotation.y = fp_yaw
+		if _fp_cam_anchor:
+			_fp_cam_anchor.rotation.y = fp_yaw
+			_fp_cam_anchor.rotation.x = fp_pitch
+	else:
+		# Overhead perspective movement
+		var input_dir := Vector2.ZERO
+		if Input.is_action_pressed(act_up):
+			input_dir.y -= 1.0
+		if Input.is_action_pressed(act_down):
+			input_dir.y += 1.0
+		if Input.is_action_pressed(act_left):
+			input_dir.x -= 1.0
+		if Input.is_action_pressed(act_right):
+			input_dir.x += 1.0
+		input_dir = input_dir.normalized()
+		
+		move_vec = Vector3(input_dir.x, 0.0, input_dir.y)
+		if move_vec.length_squared() > 0.01:
+			_target_yaw = atan2(move_vec.x, move_vec.z) + PI
+			_visuals.rotation.y = lerp_angle(_visuals.rotation.y, _target_yaw, delta * 12.0)
 	
 	if move_vec.length_squared() > 0.01:
 		velocity.x = move_toward(velocity.x, move_vec.x * base_speed, acceleration * delta)
 		velocity.z = move_toward(velocity.z, move_vec.z * base_speed, acceleration * delta)
 		
-		# Rotate character visuals to face movement direction
-		_target_yaw = atan2(move_vec.x, move_vec.z) + PI
-		_visuals.rotation.y = lerp_angle(_visuals.rotation.y, _target_yaw, delta * 12.0)
-		
 		# Procedural walk bounce & tilt
 		_walk_time += delta * 14.0
 		_visuals.position.y = absf(sin(_walk_time)) * 0.08
 		_visuals.rotation.z = sin(_walk_time * 0.5) * 0.08
+		
+		# First-person arm swing & head bob
+		if _fp_arms:
+			_fp_arms.position.y = absf(sin(_walk_time)) * 0.02
+			if not _is_interacting_held:
+				_fp_arm_r.position.z = -0.38 + sin(_walk_time) * 0.03
+				_fp_arm_l.position.z = -0.38 - sin(_walk_time) * 0.03
+			else:
+				_fp_arm_r.position.z = -0.50
 		
 		# Articulated leg walking swing
 		if _leg_l and _leg_r:
@@ -488,6 +640,12 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta * 1.5)
 		_visuals.position.y = move_toward(_visuals.position.y, 0.0, delta * 0.5)
 		_visuals.rotation.z = move_toward(_visuals.rotation.z, 0.0, delta * 4.0)
+		
+		if _fp_arms:
+			_fp_arms.position.y = move_toward(_fp_arms.position.y, 0.0, delta * 0.5)
+			if not _is_interacting_held:
+				_fp_arm_r.position.z = move_toward(_fp_arm_r.position.z, -0.38, delta * 0.5)
+				_fp_arm_l.position.z = move_toward(_fp_arm_l.position.z, -0.38, delta * 0.5)
 		
 		# Return limbs to rest and idle breathing
 		if _leg_l and _leg_r:

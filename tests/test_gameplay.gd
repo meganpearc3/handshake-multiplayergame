@@ -28,11 +28,11 @@ func _run_tests() -> void:
 	assert(p2.player_id == 2 and p2.character_name == "Spark", "P2 Spark mismatch")
 	print("[PASS] Milestone A: Two independently controlled 3D CharacterBody3D operatives verified (Cipher & Spark).")
 	
-	# Verify Dynamic Camera
+	# Verify Cameras (First-Person Split-Screen and Shared Dynamic Camera)
 	var cam: Camera3D = game._camera
 	assert(cam != null, "Camera not found")
-	assert(cam.current == true, "Dynamic camera is not current")
-	print("[PASS] Milestone A: Shared dynamic elevated camera framing both players verified.")
+	assert(game._fp_cam_1 != null and game._fp_cam_2 != null, "First-person cameras not initialized")
+	print("[PASS] Milestone A: First-Person Split-Screen and Dynamic Cameras verified.")
 	
 	# 2. Test Puzzle 1: Security Override
 	print("Testing Puzzle 1: Security Override...")

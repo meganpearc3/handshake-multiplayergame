@@ -38,8 +38,8 @@ func _build_ui() -> void:
 	# Subtitle
 	var sub := Label.new()
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.text = "★ A 3D TWO-PLAYER COOPERATIVE MUSEUM HEIST ★"
-	sub.add_theme_font_size_override("font_size", 16)
+	sub.text = "★ 3D TWO-PLAYER FIRST-PERSON CO-OP HEIST ★\nPress [V] anytime to toggle View Mode (Split FP / Full FP / Overhead)"
+	sub.add_theme_font_size_override("font_size", 14)
 	sub.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0))
 	vbox.add_child(sub)
 	
@@ -74,7 +74,7 @@ func _build_ui() -> void:
 	c_vbox.add_child(c_name)
 	
 	var c_info := Label.new()
-	c_info.text = "Role: Hacker & Grid Controller\nMove: W, A, S, D\nInteract: [ E ]"
+	c_info.text = "Role: Hacker & Grid Controller\nControls: W/S (Forward/Back), A/D (Turn View)\nInteract: [ E ] | Shift+A/D: Strafe"
 	c_info.add_theme_font_size_override("font_size", 14)
 	c_info.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
 	c_vbox.add_child(c_info)
@@ -107,7 +107,7 @@ func _build_ui() -> void:
 	s_vbox.add_child(s_name)
 	
 	var s_info := Label.new()
-	s_info.text = "Role: Infiltrator & Lock Specialist\nMove: Arrow Keys (↑, ↓, ←, →)\nInteract: [ Enter ]"
+	s_info.text = "Role: Infiltrator & Lock Specialist\nControls: ↑/↓ (Forward/Back), ←/→ (Turn View)\nInteract: [ Enter ] | Shift+←/→: Strafe"
 	s_info.add_theme_font_size_override("font_size", 14)
 	s_info.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 	s_vbox.add_child(s_info)

@@ -5,16 +5,35 @@ const PlayerScene = preload("res://scenes/player.tscn")
 const DynamicCameraScript = preload("res://scripts/dynamic_camera.gd")
 const HUDScript = preload("res://scripts/hud.gd")
 const VictoryFailScript = preload("res://scripts/victory_fail_screen.gd")
+const PopupManagerScript = preload("res://scripts/popup_manager.gd")
 
 const PuzzleSecurityOverrideScript = preload("res://scripts/puzzles/puzzle_security_override.gd")
 const PuzzleLaserGalleryScript = preload("res://scripts/puzzles/puzzle_laser_gallery.gd")
 const PuzzleVaultScript = preload("res://scripts/puzzles/puzzle_vault.gd")
+
+enum ViewMode {
+	SPLIT_FP,
+	CIPHER_FP,
+	SPARK_FP,
+	OVERHEAD
+}
+var _current_view_mode: ViewMode = ViewMode.SPLIT_FP
 
 var _p1: CharacterBody3D = null
 var _p2: CharacterBody3D = null
 var _camera: Camera3D = null
 var _hud: CanvasLayer = null
 var _victory_fail_ui: CanvasLayer = null
+var _popup_mgr: Node = null
+
+var _viewport_layer: CanvasLayer = null
+var _split_container: HBoxContainer = null
+var _sub_cont_1: SubViewportContainer = null
+var _sub_cont_2: SubViewportContainer = null
+var _vp_1: SubViewport = null
+var _vp_2: SubViewport = null
+var _fp_cam_1: Camera3D = null
+var _fp_cam_2: Camera3D = null
 
 var _puzzle_security: Node3D = null
 var _puzzle_lasers: Node3D = null
@@ -34,8 +53,12 @@ var _security_cameras: Array[Node3D] = []
 
 func _ready() -> void:
 	_audio_mgr = get_node_or_null("/root/AudioManager")
+	_popup_mgr = PopupManagerScript.new()
+	add_child(_popup_mgr)
+	
 	_setup_environment()
 	_spawn_players_and_camera()
+	_setup_viewports()
 	_build_museum_structure()
 	_setup_puzzles()
 	_setup_hud()
@@ -46,24 +69,24 @@ func _ready() -> void:
 		_hud.show_driver_radio("Cipher, Spark - you're inside. Crack security first, then get that diamond!", 5.0)
 
 func _setup_environment() -> void:
-	# Directional key light
+	# Directional key light - Bright, vibrant museum gallery skylight
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55.0, 35.0, 0.0)
-	sun.light_color = Color(0.95, 0.92, 0.85)
-	sun.light_energy = 1.0
+	sun.light_color = Color(1.0, 0.98, 0.92)
+	sun.light_energy = 1.6
 	sun.shadow_enabled = true
 	add_child(sun)
 	
-	# WorldEnvironment
+	# WorldEnvironment - Bright ambient museum illumination
 	var env_node := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.04, 0.06, 0.1)
+	env.background_color = Color(0.15, 0.22, 0.35)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.2, 0.25, 0.35)
-	env.ambient_light_energy = 0.8
+	env.ambient_light_color = Color(0.85, 0.90, 1.0)
+	env.ambient_light_energy = 0.95
 	env.glow_enabled = true
-	env.glow_bloom = 0.25
+	env.glow_bloom = 0.3
 	env.glow_hdr_threshold = 1.0
 	env_node.environment = env
 	add_child(env_node)
@@ -85,7 +108,7 @@ func _spawn_players_and_camera() -> void:
 	_p2.add_to_group("players")
 	add_child(_p2)
 	
-	# Setup shared dynamic camera
+	# Setup shared dynamic camera (for overhead view mode)
 	var cam := DynamicCameraScript.new()
 	cam.name = "DynamicCamera"
 	cam.player_1 = _p1
@@ -94,29 +117,185 @@ func _spawn_players_and_camera() -> void:
 	add_child(cam)
 	_camera = cam
 
+func _setup_viewports() -> void:
+	_viewport_layer = CanvasLayer.new()
+	_viewport_layer.layer = 1
+	add_child(_viewport_layer)
+	
+	_split_container = HBoxContainer.new()
+	_split_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_split_container.add_theme_constant_override("separation", 4)
+	_viewport_layer.add_child(_split_container)
+	
+	# Left: Cipher First Person
+	_sub_cont_1 = SubViewportContainer.new()
+	_sub_cont_1.stretch = true
+	_sub_cont_1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sub_cont_1.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_vp_1 = SubViewport.new()
+	_vp_1.handle_input_locally = false
+	_vp_1.world_3d = get_viewport().world_3d
+	_sub_cont_1.add_child(_vp_1)
+	_split_container.add_child(_sub_cont_1)
+	
+	_fp_cam_1 = Camera3D.new()
+	_fp_cam_1.fov = 76.0
+	_fp_cam_1.near = 0.08
+	_fp_cam_1.current = true
+	_vp_1.add_child(_fp_cam_1)
+	
+	# P1 Crosshair and Badge
+	var ch1 := Label.new()
+	ch1.text = "· + ·"
+	ch1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ch1.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ch1.set_anchors_preset(Control.PRESET_CENTER)
+	ch1.add_theme_font_size_override("font_size", 22)
+	ch1.add_theme_color_override("font_color", Color(0.3, 0.9, 1.0, 0.8))
+	_sub_cont_1.add_child(ch1)
+	
+	var tag1 := Label.new()
+	tag1.text = " [P1: CIPHER] "
+	tag1.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	tag1.offset_left = 12.0
+	tag1.offset_bottom = -24.0
+	tag1.add_theme_font_size_override("font_size", 13)
+	tag1.add_theme_color_override("font_color", Color(0.25, 0.85, 1.0))
+	_sub_cont_1.add_child(tag1)
+	
+	# Divider seam
+	var seam := ColorRect.new()
+	seam.custom_minimum_size = Vector2(4, 0)
+	seam.color = Color(0.2, 0.6, 0.95, 0.8)
+	_split_container.add_child(seam)
+	
+	# Right: Spark First Person
+	_sub_cont_2 = SubViewportContainer.new()
+	_sub_cont_2.stretch = true
+	_sub_cont_2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sub_cont_2.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_vp_2 = SubViewport.new()
+	_vp_2.handle_input_locally = false
+	_vp_2.world_3d = get_viewport().world_3d
+	_sub_cont_2.add_child(_vp_2)
+	_split_container.add_child(_sub_cont_2)
+	
+	_fp_cam_2 = Camera3D.new()
+	_fp_cam_2.fov = 76.0
+	_fp_cam_2.near = 0.08
+	_fp_cam_2.current = true
+	_vp_2.add_child(_fp_cam_2)
+	
+	# P2 Crosshair and Badge
+	var ch2 := Label.new()
+	ch2.text = "· + ·"
+	ch2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ch2.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ch2.set_anchors_preset(Control.PRESET_CENTER)
+	ch2.add_theme_font_size_override("font_size", 22)
+	ch2.add_theme_color_override("font_color", Color(1.0, 0.75, 0.2, 0.8))
+	_sub_cont_2.add_child(ch2)
+	
+	var tag2 := Label.new()
+	tag2.text = " [P2: SPARK] "
+	tag2.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	tag2.offset_right = -12.0
+	tag2.offset_bottom = -24.0
+	tag2.add_theme_font_size_override("font_size", 13)
+	tag2.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
+	_sub_cont_2.add_child(tag2)
+	
+	_apply_view_mode(_current_view_mode)
+
+func _cycle_view_mode() -> void:
+	match _current_view_mode:
+		ViewMode.SPLIT_FP:
+			_current_view_mode = ViewMode.CIPHER_FP
+		ViewMode.CIPHER_FP:
+			_current_view_mode = ViewMode.SPARK_FP
+		ViewMode.SPARK_FP:
+			_current_view_mode = ViewMode.OVERHEAD
+		ViewMode.OVERHEAD:
+			_current_view_mode = ViewMode.SPLIT_FP
+	_apply_view_mode(_current_view_mode)
+
+func _apply_view_mode(mode: ViewMode) -> void:
+	match mode:
+		ViewMode.SPLIT_FP:
+			_viewport_layer.visible = true
+			_sub_cont_1.visible = true
+			_sub_cont_2.visible = true
+			if _camera:
+				_camera.current = false
+			if _p1 and _p1.has_method("set_first_person"):
+				_p1.set_first_person(true)
+			if _p2 and _p2.has_method("set_first_person"):
+				_p2.set_first_person(true)
+			if _hud and _hud.has_method("update_view_mode_label"):
+				_hud.update_view_mode_label("FP SPLIT")
+		ViewMode.CIPHER_FP:
+			_viewport_layer.visible = true
+			_sub_cont_1.visible = true
+			_sub_cont_2.visible = false
+			if _camera:
+				_camera.current = false
+			if _p1 and _p1.has_method("set_first_person"):
+				_p1.set_first_person(true)
+			if _p2 and _p2.has_method("set_first_person"):
+				_p2.set_first_person(false)
+			if _hud and _hud.has_method("update_view_mode_label"):
+				_hud.update_view_mode_label("CIPHER FP")
+		ViewMode.SPARK_FP:
+			_viewport_layer.visible = true
+			_sub_cont_1.visible = false
+			_sub_cont_2.visible = true
+			if _camera:
+				_camera.current = false
+			if _p1 and _p1.has_method("set_first_person"):
+				_p1.set_first_person(false)
+			if _p2 and _p2.has_method("set_first_person"):
+				_p2.set_first_person(true)
+			if _hud and _hud.has_method("update_view_mode_label"):
+				_hud.update_view_mode_label("SPARK FP")
+		ViewMode.OVERHEAD:
+			_viewport_layer.visible = false
+			if _camera:
+				_camera.current = true
+			if _p1 and _p1.has_method("set_first_person"):
+				_p1.set_first_person(false)
+			if _p2 and _p2.has_method("set_first_person"):
+				_p2.set_first_person(false)
+			if _hud and _hud.has_method("update_view_mode_label"):
+				_hud.update_view_mode_label("OVERHEAD")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_V:
+			_cycle_view_mode()
+
 func _build_museum_structure() -> void:
-	# High-grade Stylized Museum Palette Materials
+	# High-grade Stylized Museum Palette Materials (Bright & Vibrant)
 	var mat_marble := StandardMaterial3D.new()
-	mat_marble.albedo_color = Color(0.09, 0.12, 0.18)
-	mat_marble.roughness = 0.18
-	mat_marble.metallic = 0.08
+	mat_marble.albedo_color = Color(0.93, 0.94, 0.97) # Pristine White Carrara Marble
+	mat_marble.roughness = 0.12
+	mat_marble.metallic = 0.10
 	
 	var mat_carpet := StandardMaterial3D.new()
-	mat_carpet.albedo_color = Color(0.52, 0.08, 0.12) # Royal crimson runner
-	mat_carpet.roughness = 0.85
+	mat_carpet.albedo_color = Color(0.92, 0.08, 0.22) # Vivid Royal Crimson
+	mat_carpet.roughness = 0.75
 	
 	var mat_wainscot := StandardMaterial3D.new()
-	mat_wainscot.albedo_color = Color(0.12, 0.08, 0.06) # Rich polished mahogany
-	mat_wainscot.roughness = 0.45
+	mat_wainscot.albedo_color = Color(0.48, 0.24, 0.12) # Warm Cherry Mahogany
+	mat_wainscot.roughness = 0.35
 	
 	var mat_wall_upper := StandardMaterial3D.new()
-	mat_wall_upper.albedo_color = Color(0.07, 0.10, 0.15) # Midnight navy museum plaster
-	mat_wall_upper.roughness = 0.75
+	mat_wall_upper.albedo_color = Color(0.18, 0.38, 0.65) # Vibrant Royal Sapphire
+	mat_wall_upper.roughness = 0.55
 	
 	var mat_gold_trim := StandardMaterial3D.new()
-	mat_gold_trim.albedo_color = Color(0.9, 0.75, 0.28)
+	mat_gold_trim.albedo_color = Color(1.0, 0.86, 0.24) # 24k Gold
 	mat_gold_trim.metallic = 0.95
-	mat_gold_trim.roughness = 0.2
+	mat_gold_trim.roughness = 0.15
 	
 	var mat_hazard := StandardMaterial3D.new()
 	mat_hazard.albedo_color = Color(0.95, 0.8, 0.1) # Caution yellow
@@ -1014,6 +1193,8 @@ func _setup_puzzles() -> void:
 	_puzzle_security.position = Vector3(0, 0, -4.0)
 	_puzzle_security.puzzle_solved.connect(_on_puzzle_1_solved)
 	_puzzle_security.alarm_triggered.connect(_add_alarm_strike)
+	_puzzle_security.sequence_updated.connect(func(seq): if _popup_mgr: _popup_mgr.show_security_override(seq, 1))
+	_puzzle_security.button_pressed.connect(func(bname, corr, ccount, tot): if _popup_mgr: _popup_mgr.show_pedestal_input(bname, corr, ccount, tot))
 	add_child(_puzzle_security)
 	
 	# Puzzle 2: Laser Gallery (Z = 0)
@@ -1021,6 +1202,7 @@ func _setup_puzzles() -> void:
 	_puzzle_lasers.position = Vector3(0, 0, 0)
 	_puzzle_lasers.puzzle_solved.connect(_on_puzzle_2_solved)
 	_puzzle_lasers.alarm_triggered.connect(_add_alarm_strike)
+	_puzzle_lasers.bypass_toggled.connect(func(sname, held): if _popup_mgr: _popup_mgr.show_laser_bypass(sname, held))
 	add_child(_puzzle_lasers)
 	
 	# Puzzle 3: Vault & Diamond (Z = 0)
@@ -1029,10 +1211,13 @@ func _setup_puzzles() -> void:
 	_puzzle_vault.vault_unlocked.connect(_on_puzzle_3_vault_opened)
 	_puzzle_vault.diamond_stolen.connect(_on_diamond_stolen)
 	_puzzle_vault.alarm_triggered.connect(_add_alarm_strike)
+	_puzzle_vault.plaque_inspected.connect(func(title, digit, text): if _popup_mgr: _popup_mgr.show_clue_plaque(title, digit, text))
+	_puzzle_vault.code_progress.connect(func(entered, latched, unlocked): if _popup_mgr: _popup_mgr.show_vault_keypad(entered, latched, unlocked))
 	add_child(_puzzle_vault)
 
 func _setup_hud() -> void:
 	_hud = HUDScript.new()
+	_hud.view_toggle_requested.connect(_cycle_view_mode)
 	add_child(_hud)
 	
 	_victory_fail_ui = VictoryFailScript.new()
@@ -1078,6 +1263,8 @@ func _on_diamond_stolen(carrier: Node3D) -> void:
 	_escape_timer = 60.0
 	if _camera and _camera.has_method("shake"):
 		_camera.shake(0.55)
+	if _popup_mgr and _popup_mgr.has_method("show_diamond_acquired"):
+		_popup_mgr.show_diamond_acquired()
 	
 	# Activate red flashing alarms
 	for light in _alarm_lights:
@@ -1120,6 +1307,12 @@ func _process(delta: float) -> void:
 		return
 	
 	_time_elapsed += delta
+	
+	# Update First-Person camera transforms to track operative heads
+	if _fp_cam_1 and _p1 and _p1.has_method("get_fp_cam_transform"):
+		_fp_cam_1.global_transform = _p1.get_fp_cam_transform()
+	if _fp_cam_2 and _p2 and _p2.has_method("get_fp_cam_transform"):
+		_fp_cam_2.global_transform = _p2.get_fp_cam_transform()
 	
 	# Animate security cameras
 	var cam_pan := sin(_time_elapsed * 0.8) * 0.45

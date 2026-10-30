@@ -4,6 +4,8 @@ extends Node3D
 signal vault_unlocked()
 signal diamond_stolen(carrier: Node3D)
 signal alarm_triggered()
+signal plaque_inspected(title: String, digit: int, text: String)
+signal code_progress(entered: Array[int], is_latched: bool, is_open: bool)
 
 const InteractableScript = preload("res://scripts/interactable.gd")
 
@@ -48,9 +50,9 @@ func _build_vault_chamber() -> void:
 	add_child(_vault_console)
 	
 	# 3. Museum Clue Plaques on the walls
-	_create_clue_plaque(Vector3(-6.2, 1.8, -35.5), Vector3(0, PI * 0.5, 0), "VAULT ARCHIVE DIGIT 1:\n[ 7 ]")
-	_create_clue_plaque(Vector3(6.2, 1.8, -35.5), Vector3(0, -PI * 0.5, 0), "VAULT ARCHIVE DIGIT 2:\n[ 4 ]")
-	_create_clue_plaque(Vector3(-6.2, 1.8, -39.0), Vector3(0, PI * 0.5, 0), "VAULT ARCHIVE DIGIT 3:\n[ 2 ]")
+	_create_clue_plaque(Vector3(-6.2, 1.8, -35.5), Vector3(0, PI * 0.5, 0), "VAULT ARCHIVE DIGIT 1:\n[ 7 ]", "VAULT ARCHIVE DIGIT 1", 7)
+	_create_clue_plaque(Vector3(6.2, 1.8, -35.5), Vector3(0, -PI * 0.5, 0), "VAULT ARCHIVE DIGIT 2:\n[ 4 ]", "VAULT ARCHIVE DIGIT 2", 4)
+	_create_clue_plaque(Vector3(-6.2, 1.8, -39.0), Vector3(0, PI * 0.5, 0), "VAULT ARCHIVE DIGIT 3:\n[ 2 ]", "VAULT ARCHIVE DIGIT 3", 2)
 	
 	# 4. Giant 3D Circular Vault Door (Z = -42.0)
 	_build_vault_door(Vector3(0, 0, -42.0))
@@ -150,7 +152,7 @@ func _create_pressure_plate(pos: Vector3, plate_idx: int) -> Node3D:
 	
 	return root
 
-func _create_clue_plaque(pos: Vector3, rot: Vector3, text: String) -> void:
+func _create_clue_plaque(pos: Vector3, rot: Vector3, text: String, title: String = "VAULT ARCHIVE", digit: int = 0) -> void:
 	var plaque := Node3D.new()
 	plaque.position = pos
 	plaque.rotation = rot
@@ -186,6 +188,18 @@ func _create_clue_plaque(pos: Vector3, rot: Vector3, text: String) -> void:
 	lbl.position = Vector3(0, 0, 0.06)
 	lbl.text = text
 	plaque.add_child(lbl)
+	
+	# Interactable inspect area
+	var inter := InteractableScript.new()
+	inter.prompt_text = "Inspect Plaque: " + title
+	var col := CollisionShape3D.new()
+	var col_box := BoxShape3D.new()
+	col_box.size = Vector3(2.4, 2.0, 2.0)
+	col.shape = col_box
+	col.position = Vector3(0, 0, 0.5)
+	inter.add_child(col)
+	inter.interacted.connect(func(_p): plaque_inspected.emit(title, digit, text))
+	plaque.add_child(inter)
 	
 	add_child(plaque)
 
@@ -511,8 +525,10 @@ func _on_console_interacted(player: Node3D) -> void:
 	if not is_power_latched:
 		if _audio_mgr:
 			_audio_mgr.play_buzzer()
+		code_progress.emit(_entered_code, false, false)
 		return
 	if is_vault_open:
+		code_progress.emit(_entered_code, true, true)
 		return
 	
 	# Prompt player to advance digit
@@ -529,6 +545,7 @@ func _on_console_interacted(player: Node3D) -> void:
 		code_str += "_ "
 	
 	_code_display_label.text = "CODE VERIFIED: [ %s ]" % code_str.strip_edges()
+	code_progress.emit(_entered_code, true, _entered_code.size() == VAULT_CODE.size())
 	
 	if _entered_code.size() == VAULT_CODE.size():
 		is_vault_open = true

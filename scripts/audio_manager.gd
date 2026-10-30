@@ -63,6 +63,22 @@ func play_beep(freq: float = 880.0, duration: float = 0.12) -> void:
 	player.stream = _create_wav(bytes)
 	player.play()
 
+func play_terminal_hack() -> void:
+	var duration: float = 0.28
+	var num_samples: int = int(MIX_RATE * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(num_samples * 2)
+	for i in range(num_samples):
+		var t: float = float(i) / float(MIX_RATE)
+		var freq: float = 800.0 + (sin(t * 80.0) * 400.0)
+		var env: float = clampf(1.0 - (t / duration), 0.0, 1.0)
+		var val: float = sin(t * freq * TAU) * env * 0.3
+		var sample_val: int = clampi(int(val * 32767.0), -32768, 32767)
+		bytes.encode_s16(i * 2, sample_val)
+	var player := _get_free_player()
+	player.stream = _create_wav(bytes)
+	player.play()
+
 func play_success() -> void:
 	# Arpeggio chord C5 - E5 - G5 - C6
 	var notes: Array[float] = [523.25, 659.25, 783.99, 1046.50]

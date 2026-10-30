@@ -3,6 +3,7 @@ extends Node3D
 
 signal puzzle_solved()
 signal alarm_triggered()
+signal bypass_toggled(switch_name: String, is_held: bool)
 
 const InteractableScript = preload("res://scripts/interactable.gd")
 const LaserBeamScript = preload("res://scripts/puzzles/laser_beam.gd")
@@ -287,6 +288,7 @@ func _process(delta: float) -> void:
 			card.position.y = 1.25 + sin(Time.get_ticks_msec() * 0.005) * 0.06
 
 func _on_switch_a_hold(is_holding: bool) -> void:
+	bypass_toggled.emit("BYPASS LEVER A (CIPHER)", is_holding)
 	for laser in _lasers_group_a:
 		if is_instance_valid(laser):
 			laser.set_laser_active(not is_holding)
@@ -302,6 +304,7 @@ func _on_switch_a_hold(is_holding: bool) -> void:
 			_audio_mgr.play_beep(350.0, 0.08)
 
 func _on_switch_b_hold(is_holding: bool) -> void:
+	bypass_toggled.emit("BYPASS LEVER B (SPARK)", is_holding)
 	for laser in _lasers_group_b:
 		if is_instance_valid(laser):
 			laser.set_laser_active(not is_holding)
