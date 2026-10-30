@@ -114,6 +114,8 @@ func _spawn_players_and_camera() -> void:
 	cam.player_1 = _p1
 	cam.player_2 = _p2
 	cam.position = Vector3(0, 10, 14)
+	# Layer 1 (World), Layer 2 (Cipher Body), Layer 4 (Spark Body) - Excludes FP arms (8 and 16)
+	cam.cull_mask = 1 | 2 | 4
 	add_child(cam)
 	_camera = cam
 
@@ -139,8 +141,10 @@ func _setup_viewports() -> void:
 	_split_container.add_child(_sub_cont_1)
 	
 	_fp_cam_1 = Camera3D.new()
-	_fp_cam_1.fov = 76.0
-	_fp_cam_1.near = 0.08
+	_fp_cam_1.fov = 78.0
+	_fp_cam_1.near = 0.03
+	# Cull mask: Sees World (1), Spark (4), Cipher FP arms (8). EXCLUDES Cipher body (2) so no self-blockage!
+	_fp_cam_1.cull_mask = 1 | 4 | 8
 	_fp_cam_1.current = true
 	_vp_1.add_child(_fp_cam_1)
 	
@@ -181,8 +185,10 @@ func _setup_viewports() -> void:
 	_split_container.add_child(_sub_cont_2)
 	
 	_fp_cam_2 = Camera3D.new()
-	_fp_cam_2.fov = 76.0
-	_fp_cam_2.near = 0.08
+	_fp_cam_2.fov = 78.0
+	_fp_cam_2.near = 0.03
+	# Cull mask: Sees World (1), Cipher (2), Spark FP arms (16). EXCLUDES Spark body (4) so no self-blockage!
+	_fp_cam_2.cull_mask = 1 | 2 | 16
 	_fp_cam_2.current = true
 	_vp_2.add_child(_fp_cam_2)
 	
@@ -436,6 +442,83 @@ func _build_museum_structure() -> void:
 		light.omni_range = 14.0
 		add_child(light)
 		_alarm_lights.append(light)
+	
+	# 13. Grand Museum Roof & Coffered Ceilings
+	var mat_ceiling := StandardMaterial3D.new()
+	mat_ceiling.albedo_color = Color(0.93, 0.91, 0.87) # Warm Italian ivory plaster
+	mat_ceiling.roughness = 0.35
+	
+	var mat_ceiling_beam := StandardMaterial3D.new()
+	mat_ceiling_beam.albedo_color = Color(0.38, 0.20, 0.10) # Rich mahogany timber
+	mat_ceiling_beam.roughness = 0.4
+	
+	# Solid Main Ceiling Slab covering entire museum interior from Z = -52.2 to +8.2
+	_create_static_box(Vector3(0, wall_height + 0.1, -22.0), Vector3(18.6, 0.2, 60.4), mat_ceiling)
+	
+	# Longitudinal Coffered Ceiling Beams (along Z)
+	for x_beam in [-6.0, -3.0, 0.0, 3.0, 6.0]:
+		_create_decorative_box(Vector3(x_beam, wall_height - 0.08, -22.0), Vector3(0.35, 0.18, 60.4), mat_ceiling_beam)
+		_create_decorative_box(Vector3(x_beam, wall_height - 0.18, -22.0), Vector3(0.12, 0.04, 60.4), mat_gold_trim)
+	
+	# Transverse Coffered Ceiling Beams (along X)
+	for z_beam in [6.0, 0.0, -6.0, -12.0, -18.0, -24.0, -30.0, -36.0, -42.0, -48.0]:
+		_create_decorative_box(Vector3(0, wall_height - 0.08, z_beam), Vector3(18.4, 0.18, 0.35), mat_ceiling_beam)
+		_create_decorative_box(Vector3(0, wall_height - 0.18, z_beam), Vector3(18.4, 0.04, 0.12), mat_gold_trim)
+	
+	# 14. Structural Sector Barriers & Enclosed Laser Corridor
+	# (Prevents bypassing puzzles; players must proceed through the designated course)
+	
+	# Sector 1 -> Sector 2 Bulkhead Dividing Walls (Z = -8.0)
+	# Leaves a 6.0m central archway for the Bulkhead Door (X: -3.0 to +3.0)
+	_create_static_box(Vector3(-6.1, wall_height * 0.5, -8.0), Vector3(5.8, wall_height, 0.6), mat_wall_upper)
+	_create_decorative_box(Vector3(-6.1, 0.6, -7.68), Vector3(5.8, 1.2, 0.12), mat_wainscot)
+	_create_decorative_box(Vector3(-6.1, 1.22, -7.65), Vector3(5.8, 0.1, 0.15), mat_gold_trim)
+	_create_static_box(Vector3(6.1, wall_height * 0.5, -8.0), Vector3(5.8, wall_height, 0.6), mat_wall_upper)
+	_create_decorative_box(Vector3(6.1, 0.6, -7.68), Vector3(5.8, 1.2, 0.12), mat_wainscot)
+	_create_decorative_box(Vector3(6.1, 1.22, -7.65), Vector3(5.8, 0.1, 0.15), mat_gold_trim)
+	_create_static_box(Vector3(0, 4.5, -8.0), Vector3(6.4, 1.4, 0.6), mat_gold_trim)
+	
+	# Laser Gallery Enclosed Hallway Corridor (Z = -8.0 to Z = -32.0, length 24.0m)
+	# Encloses the course so lasers span wall-to-wall; players CANNOT bypass around them!
+	var mat_corridor := StandardMaterial3D.new()
+	mat_corridor.albedo_color = Color(0.14, 0.32, 0.58)
+	mat_corridor.roughness = 0.5
+	
+	# West Corridor Barrier Wall (X = -3.65)
+	_create_static_box(Vector3(-3.65, wall_height * 0.5, -20.0), Vector3(0.5, wall_height, 24.0), mat_corridor)
+	_create_decorative_box(Vector3(-3.38, 0.6, -20.0), Vector3(0.12, 1.2, 24.0), mat_wainscot)
+	_create_decorative_box(Vector3(-3.36, 1.22, -20.0), Vector3(0.15, 0.1, 24.0), mat_gold_trim)
+	_create_decorative_box(Vector3(-3.38, 0.05, -20.0), Vector3(0.14, 0.1, 24.0), mat_hazard)
+	
+	# East Corridor Barrier Wall (X = +3.65)
+	_create_static_box(Vector3(3.65, wall_height * 0.5, -20.0), Vector3(0.5, wall_height, 24.0), mat_corridor)
+	_create_decorative_box(Vector3(3.38, 0.6, -20.0), Vector3(0.12, 1.2, 24.0), mat_wainscot)
+	_create_decorative_box(Vector3(3.36, 1.22, -20.0), Vector3(0.15, 0.1, 24.0), mat_gold_trim)
+	_create_decorative_box(Vector3(3.38, 0.05, -20.0), Vector3(0.14, 0.1, 24.0), mat_hazard)
+	
+	# Sector 2 -> Sector 3 Keycard Doorway Dividing Walls (Z = -32.0)
+	# Leaves a 6.5m central archway for the Keycard Barrier Door (X: -3.25 to +3.25)
+	_create_static_box(Vector3(-6.12, wall_height * 0.5, -32.0), Vector3(5.75, wall_height, 0.6), mat_wall_upper)
+	_create_decorative_box(Vector3(-6.12, 0.6, -31.68), Vector3(5.75, 1.2, 0.12), mat_wainscot)
+	_create_decorative_box(Vector3(-6.12, 1.22, -31.65), Vector3(5.75, 0.1, 0.15), mat_gold_trim)
+	_create_static_box(Vector3(6.12, wall_height * 0.5, -32.0), Vector3(5.75, wall_height, 0.6), mat_wall_upper)
+	_create_decorative_box(Vector3(6.12, 0.6, -31.68), Vector3(5.75, 1.2, 0.12), mat_wainscot)
+	_create_decorative_box(Vector3(6.12, 1.22, -31.65), Vector3(5.75, 0.1, 0.15), mat_gold_trim)
+	_create_static_box(Vector3(0, 4.5, -32.0), Vector3(6.8, 1.4, 0.6), mat_gold_trim)
+	
+	# Sector 3 -> Sector 4 Vault Entry Dividing Walls (Z = -42.0)
+	# Flanks the 10.0m heavy vault doorway frame (X: -5.0 to +5.0)
+	_create_static_box(Vector3(-7.1, wall_height * 0.5, -42.0), Vector3(4.2, wall_height, 1.0), mat_wall_upper)
+	_create_static_box(Vector3(7.1, wall_height * 0.5, -42.0), Vector3(4.2, wall_height, 1.0), mat_wall_upper)
+	
+	# 15. Grand Chandeliers with Good Lighting throughout Museum
+	_create_grand_chandelier(Vector3(0, 3.8, 4.0))    # Entrance Lobby
+	_create_grand_chandelier(Vector3(0, 3.8, -4.0))   # Security Control Room
+	_create_grand_chandelier(Vector3(0, 3.8, -12.0))  # Laser Gallery Entrance
+	_create_grand_chandelier(Vector3(0, 3.8, -20.5))  # Laser Gallery Keycard Pedestal
+	_create_grand_chandelier(Vector3(0, 3.8, -29.0))  # Laser Gallery Exit
+	_create_grand_chandelier(Vector3(0, 3.8, -37.0))  # Vault Antechamber / Pressure Plates
+	_create_grand_chandelier(Vector3(0, 3.8, -47.0))  # Midnight Diamond Inner Vault
 
 func _create_static_box(pos: Vector3, size: Vector3, mat: Material) -> StaticBody3D:
 	var sb := StaticBody3D.new()
@@ -466,6 +549,151 @@ func _create_decorative_box(pos: Vector3, size: Vector3, mat: Material) -> MeshI
 	mesh.position = pos
 	add_child(mesh)
 	return mesh
+
+func _create_grand_chandelier(pos: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	
+	var mat_brass := StandardMaterial3D.new()
+	mat_brass.albedo_color = Color(0.95, 0.82, 0.28) # Polished brass / 24k gold
+	mat_brass.metallic = 0.95
+	mat_brass.roughness = 0.15
+	
+	var mat_flame := StandardMaterial3D.new()
+	mat_flame.albedo_color = Color(1.0, 0.92, 0.65)
+	mat_flame.emission_enabled = true
+	mat_flame.emission = Color(1.0, 0.90, 0.65)
+	mat_flame.emission_energy_multiplier = 4.5
+	
+	var mat_crystal := StandardMaterial3D.new()
+	mat_crystal.albedo_color = Color(0.95, 0.98, 1.0, 0.85)
+	mat_crystal.metallic = 0.3
+	mat_crystal.roughness = 0.05
+	mat_crystal.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	
+	# 1. Suspension Rod dropping from ceiling (ceiling is at Y = 5.3)
+	var drop_height: float = 5.3 - pos.y
+	if drop_height > 0.1:
+		var rod := MeshInstance3D.new()
+		var rcyl := CylinderMesh.new()
+		rcyl.top_radius = 0.03
+		rcyl.bottom_radius = 0.03
+		rcyl.height = drop_height
+		rod.mesh = rcyl
+		rod.material_override = mat_brass
+		rod.position = Vector3(0, drop_height * 0.5, 0)
+		root.add_child(rod)
+		
+		# Ceiling Rose Canopy
+		var canopy := MeshInstance3D.new()
+		var ccyl := CylinderMesh.new()
+		ccyl.top_radius = 0.45
+		ccyl.bottom_radius = 0.45
+		ccyl.height = 0.08
+		canopy.mesh = ccyl
+		canopy.material_override = mat_brass
+		canopy.position = Vector3(0, drop_height, 0)
+		root.add_child(canopy)
+	
+	# 2. Upper Brass Ring (Radius 0.6m)
+	var ring_top := MeshInstance3D.new()
+	var torus_top := TorusMesh.new()
+	torus_top.inner_radius = 0.55
+	torus_top.outer_radius = 0.65
+	ring_top.mesh = torus_top
+	ring_top.material_override = mat_brass
+	ring_top.position = Vector3(0, 0.45, 0)
+	root.add_child(ring_top)
+	
+	# 3. Lower Main Brass Ring (Radius 1.15m)
+	var ring_bot := MeshInstance3D.new()
+	var torus_bot := TorusMesh.new()
+	torus_bot.inner_radius = 1.05
+	torus_bot.outer_radius = 1.15
+	ring_bot.mesh = torus_bot
+	ring_bot.material_override = mat_brass
+	ring_bot.position = Vector3(0, 0.0, 0)
+	root.add_child(ring_bot)
+	
+	# 4. Eight Radial Curved Arms with Candle Sconces & Crystal Drops
+	for i in range(8):
+		var angle := (i * TAU) / 8.0
+		var dir := Vector3(cos(angle), 0, sin(angle))
+		
+		# Connecting arm from center to lower ring
+		var arm := MeshInstance3D.new()
+		var abox := BoxMesh.new()
+		abox.size = Vector3(1.1, 0.04, 0.05)
+		arm.mesh = abox
+		arm.material_override = mat_brass
+		arm.position = dir * 0.55
+		arm.rotation.y = -angle
+		root.add_child(arm)
+		
+		# Brass Candle Cup
+		var cup := MeshInstance3D.new()
+		var cup_cyl := CylinderMesh.new()
+		cup_cyl.top_radius = 0.09
+		cup_cyl.bottom_radius = 0.05
+		cup_cyl.height = 0.12
+		cup.mesh = cup_cyl
+		cup.material_override = mat_brass
+		cup.position = dir * 1.1 + Vector3(0, 0.08, 0)
+		root.add_child(cup)
+		
+		# White Candle Stick
+		var candle := MeshInstance3D.new()
+		var can_cyl := CylinderMesh.new()
+		can_cyl.top_radius = 0.04
+		can_cyl.bottom_radius = 0.04
+		can_cyl.height = 0.22
+		candle.mesh = can_cyl
+		var can_mat := StandardMaterial3D.new()
+		can_mat.albedo_color = Color(0.96, 0.94, 0.90)
+		candle.material_override = can_mat
+		candle.position = dir * 1.1 + Vector3(0, 0.22, 0)
+		root.add_child(candle)
+		
+		# Glowing Flame Bulb
+		var flame := MeshInstance3D.new()
+		var fsph := SphereMesh.new()
+		fsph.radius = 0.06
+		fsph.height = 0.14
+		flame.mesh = fsph
+		flame.material_override = mat_flame
+		flame.position = dir * 1.1 + Vector3(0, 0.38, 0)
+		root.add_child(flame)
+		
+		# Hanging Faceted Crystal Prism Drop
+		var crystal := MeshInstance3D.new()
+		var cprism := PrismMesh.new()
+		cprism.size = Vector3(0.08, 0.24, 0.06)
+		crystal.mesh = cprism
+		crystal.rotation.x = PI
+		crystal.material_override = mat_crystal
+		crystal.position = dir * 1.1 + Vector3(0, -0.15, 0)
+		root.add_child(crystal)
+	
+	# Center Bottom Crystal Finial
+	var finial := MeshInstance3D.new()
+	var fsph2 := SphereMesh.new()
+	fsph2.radius = 0.18
+	fsph2.height = 0.32
+	finial.mesh = fsph2
+	finial.material_override = mat_crystal
+	finial.position = Vector3(0, -0.22, 0)
+	root.add_child(finial)
+	
+	# High Quality OmniLight3D for warm, magnificent museum illumination
+	var omni := OmniLight3D.new()
+	omni.position = Vector3(0, 0.2, 0)
+	omni.light_color = Color(1.0, 0.93, 0.80)
+	omni.light_energy = 2.4
+	omni.omni_range = 15.0
+	omni.omni_attenuation = 1.0
+	root.add_child(omni)
+	
+	add_child(root)
 
 func _create_museum_column(pos: Vector3) -> void:
 	var root := Node3D.new()

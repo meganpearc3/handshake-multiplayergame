@@ -63,6 +63,22 @@ func _ready() -> void:
 	_configure_inputs()
 	_build_procedural_model()
 	_build_fp_rig()
+	
+	# Assign visual layers to completely prevent first-person self-blockage
+	# Layer 2 for Cipher (P1) 3D body; Layer 4 for Spark (P2) 3D body
+	var body_layer := 2 if player_id == 1 else 4
+	_set_node_layers(_visuals, body_layer)
+	if _overhead_label:
+		_set_node_layers(_overhead_label, body_layer)
+	if _halo_ring:
+		_set_node_layers(_halo_ring, body_layer)
+	if _stun_stars:
+		_set_node_layers(_stun_stars, body_layer)
+	
+	# Layer 8 for Cipher FP hands; Layer 16 for Spark FP hands
+	var fp_layer := 8 if player_id == 1 else 16
+	_set_node_layers(_fp_arms, fp_layer)
+	
 	current_checkpoint = global_position
 	
 	_interaction_detector = Area3D.new()
@@ -443,11 +459,17 @@ func _build_procedural_model() -> void:
 	col_shape.position = Vector3(0, 0.7, 0)
 	add_child(col_shape)
 
+func _set_node_layers(node: Node, layer_mask: int) -> void:
+	if node is VisualInstance3D:
+		node.layers = layer_mask
+	for child in node.get_children():
+		_set_node_layers(child, layer_mask)
+
 func _build_fp_rig() -> void:
 	_fp_cam_anchor = Node3D.new()
 	_fp_cam_anchor.name = "FPCamAnchor"
-	_fp_cam_anchor.position = Vector3(0, 1.28, -0.28)
-	add_child(_fp_cam_anchor)
+	_fp_cam_anchor.position = Vector3(0, 1.30, -0.32)
+	_visuals.add_child(_fp_cam_anchor)
 	
 	_fp_arms = Node3D.new()
 	_fp_arms.name = "FPArms"
@@ -471,16 +493,16 @@ func _build_fp_rig() -> void:
 	mat_cuff.emission = glow_col
 	mat_cuff.emission_energy_multiplier = 2.5
 	
-	# Left arm
+	# Left arm placed cleanly at bottom-left perimeter (completely unobscured view)
 	_fp_arm_l = Node3D.new()
-	_fp_arm_l.position = Vector3(-0.24, -0.20, -0.38)
-	_fp_arm_l.rotation = Vector3(0.25, -0.2, 0.1)
+	_fp_arm_l.position = Vector3(-0.35, -0.32, -0.38)
+	_fp_arm_l.rotation = Vector3(0.20, -0.25, 0.12)
 	_fp_arms.add_child(_fp_arm_l)
 	
 	var mesh_l := MeshInstance3D.new()
 	var cap_l := CapsuleMesh.new()
-	cap_l.radius = 0.045
-	cap_l.height = 0.32
+	cap_l.radius = 0.035
+	cap_l.height = 0.28
 	mesh_l.mesh = cap_l
 	mesh_l.material_override = mat_arm
 	mesh_l.rotation.x = PI * 0.4
@@ -488,24 +510,24 @@ func _build_fp_rig() -> void:
 	
 	var glove_l := MeshInstance3D.new()
 	var gbox_l := BoxMesh.new()
-	gbox_l.size = Vector3(0.07, 0.06, 0.14)
+	gbox_l.size = Vector3(0.06, 0.05, 0.12)
 	glove_l.mesh = gbox_l
 	glove_l.material_override = mat_glove
-	glove_l.position = Vector3(0, 0.04, -0.16)
+	glove_l.position = Vector3(0, 0.04, -0.14)
 	_fp_arm_l.add_child(glove_l)
 	
 	var cuff_l := MeshInstance3D.new()
 	var cbox_l := BoxMesh.new()
-	cbox_l.size = Vector3(0.075, 0.02, 0.03)
+	cbox_l.size = Vector3(0.065, 0.02, 0.025)
 	cuff_l.mesh = cbox_l
 	cuff_l.material_override = mat_cuff
-	cuff_l.position = Vector3(0, 0.06, -0.10)
+	cuff_l.position = Vector3(0, 0.06, -0.08)
 	_fp_arm_l.add_child(cuff_l)
 	
-	# Right arm
+	# Right arm placed cleanly at bottom-right perimeter (completely unobscured view)
 	_fp_arm_r = Node3D.new()
-	_fp_arm_r.position = Vector3(0.24, -0.20, -0.38)
-	_fp_arm_r.rotation = Vector3(0.25, 0.2, -0.1)
+	_fp_arm_r.position = Vector3(0.35, -0.32, -0.38)
+	_fp_arm_r.rotation = Vector3(0.20, 0.25, -0.12)
 	_fp_arms.add_child(_fp_arm_r)
 	
 	var mesh_r := MeshInstance3D.new()
@@ -517,13 +539,13 @@ func _build_fp_rig() -> void:
 	var glove_r := MeshInstance3D.new()
 	glove_r.mesh = gbox_l
 	glove_r.material_override = mat_glove
-	glove_r.position = Vector3(0, 0.04, -0.16)
+	glove_r.position = Vector3(0, 0.04, -0.14)
 	_fp_arm_r.add_child(glove_r)
 	
 	var cuff_r := MeshInstance3D.new()
 	cuff_r.mesh = cbox_l
 	cuff_r.material_override = mat_cuff
-	cuff_r.position = Vector3(0, 0.06, -0.10)
+	cuff_r.position = Vector3(0, 0.06, -0.08)
 	_fp_arm_r.add_child(cuff_r)
 	
 	set_first_person(is_first_person)
@@ -585,7 +607,7 @@ func _physics_process(delta: float) -> void:
 		
 		_visuals.rotation.y = fp_yaw
 		if _fp_cam_anchor:
-			_fp_cam_anchor.rotation.y = fp_yaw
+			_fp_cam_anchor.rotation.y = 0.0
 			_fp_cam_anchor.rotation.x = fp_pitch
 	else:
 		# Overhead perspective movement
@@ -616,12 +638,12 @@ func _physics_process(delta: float) -> void:
 		
 		# First-person arm swing & head bob
 		if _fp_arms:
-			_fp_arms.position.y = absf(sin(_walk_time)) * 0.02
+			_fp_arms.position.y = absf(sin(_walk_time)) * 0.012
 			if not _is_interacting_held:
-				_fp_arm_r.position.z = -0.38 + sin(_walk_time) * 0.03
-				_fp_arm_l.position.z = -0.38 - sin(_walk_time) * 0.03
+				_fp_arm_r.position.z = -0.38 + sin(_walk_time) * 0.02
+				_fp_arm_l.position.z = -0.38 - sin(_walk_time) * 0.02
 			else:
-				_fp_arm_r.position.z = -0.50
+				_fp_arm_r.position.z = -0.48
 		
 		# Articulated leg walking swing
 		if _leg_l and _leg_r:
@@ -644,8 +666,8 @@ func _physics_process(delta: float) -> void:
 		if _fp_arms:
 			_fp_arms.position.y = move_toward(_fp_arms.position.y, 0.0, delta * 0.5)
 			if not _is_interacting_held:
-				_fp_arm_r.position.z = move_toward(_fp_arm_r.position.z, -0.38, delta * 0.5)
-				_fp_arm_l.position.z = move_toward(_fp_arm_l.position.z, -0.38, delta * 0.5)
+				_fp_arm_r.position.z = move_toward(_fp_arm_r.position.z, -0.42, delta * 0.5)
+				_fp_arm_l.position.z = move_toward(_fp_arm_l.position.z, -0.42, delta * 0.5)
 		
 		# Return limbs to rest and idle breathing
 		if _leg_l and _leg_r:

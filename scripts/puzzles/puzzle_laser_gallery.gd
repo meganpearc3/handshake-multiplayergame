@@ -33,7 +33,7 @@ func _ready() -> void:
 func _build_gallery() -> void:
 	# 1. Switch A (Cipher hold switch at start of hallway, left side)
 	_switch_a = _create_bypass_switch(
-		Vector3(-3.2, 0, -11.0),
+		Vector3(-2.8, 0, -11.0),
 		1, # Cipher
 		"Hold Laser Override A",
 		Color(0.2, 0.6, 1.0)
@@ -48,7 +48,7 @@ func _build_gallery() -> void:
 	for i in range(z_coords_a.size()):
 		var laser := LaserBeamScript.new()
 		laser.position = Vector3(0, 0.7 + (i * 0.4), z_coords_a[i])
-		laser.beam_width = 7.0
+		laser.beam_width = 7.2
 		laser.moves_vertically = (i % 2 == 1)
 		laser.moves_horizontally = (i % 2 == 0)
 		laser.move_speed = 1.8 + (i * 0.4)
@@ -65,7 +65,7 @@ func _build_gallery() -> void:
 	for i in range(z_coords_b.size()):
 		var laser := LaserBeamScript.new()
 		laser.position = Vector3(0, 0.8 + (i * 0.35), z_coords_b[i])
-		laser.beam_width = 7.0
+		laser.beam_width = 7.2
 		laser.moves_vertically = (i % 2 == 0)
 		laser.moves_horizontally = (i % 2 == 1)
 		laser.move_speed = 2.2 + (i * 0.3)
@@ -75,7 +75,7 @@ func _build_gallery() -> void:
 	
 	# 5. Switch B (Spark hold switch at far end of hallway, right side, Z = -29.5)
 	_switch_b = _create_bypass_switch(
-		Vector3(3.2, 0, -29.5),
+		Vector3(2.8, 0, -29.5),
 		2, # Spark
 		"Hold Laser Override B",
 		Color(1.0, 0.6, 0.1)
@@ -230,7 +230,7 @@ func _build_exit_barrier() -> void:
 	
 	# Keycard terminal pedestal on the wall
 	_keycard_terminal = Node3D.new()
-	_keycard_terminal.position = Vector3(-3.2, 0, -31.2)
+	_keycard_terminal.position = Vector3(-2.8, 0, -31.2)
 	var term_ped := MeshInstance3D.new()
 	var tcyl := CylinderMesh.new()
 	tcyl.top_radius = 0.3
